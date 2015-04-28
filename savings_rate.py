@@ -1,7 +1,7 @@
 import ConfigParser
 import csv
-import time
 from dateutil import parser
+import datetime
 import mintapi
 import keyring
 import certifi
@@ -11,6 +11,7 @@ import getpass
 # For debugging
 from pprint import pprint 
 import logging
+import cProfile
 
 class SavingsRate:
     """
@@ -23,9 +24,12 @@ class SavingsRate:
         Initialize the object with settings from the config file. 
         """
         
-        # Error messages
-        error = {'no_config' : 'No config.ini file was found. Please create a config file',
-                 'missing_variable' : 'You are missing a required variable in the "Sources" section of config.ini'}
+        # Set the date format to use throughout
+        self.date_format = '%Y-%m-%d'
+
+        # Required columns for spreadsheets
+        self.required_income_columns = set(['Date'])
+        self.required_savings_columns = set(['Date'])
 
         # Get the configurations
         self.config = ConfigParser.RawConfigParser()
@@ -48,7 +52,7 @@ class SavingsRate:
         assert self.pay_source != '', self.get_error_msg('missing_variable')
         assert self.savings_source != '', self.get_error_msg('missing_variable')
 
-        # Load paystub information
+        # Load income and savings information
         self.get_pay()
         self.get_savings()
 
@@ -67,9 +71,34 @@ class SavingsRate:
         # Error messages
         message = {'no_config' : 'No config.ini file was found. Please create a config file',
                    'missing_variable' : 'You are missing a required variable in the "Sources" section of config.ini',
-                   'no_mint_username' : 'Please set your username in the "Mint" section of the config.ini'}
+                   'no_mint_username' : 'Please set your username in the "Mint" section of the config.ini',
+                   'bad_spreadsheet_type' : 'You passed an improper spreadsheet type to test_columns()',
+                   'required_savings_column' : 'You are missing a required column in ' +  self.savings_source + 
+                        '. The following columns are required: ' + ', '.join(self.required_savings_columns) + '',
+                   'required_income_column' : 'You are missing a required column in ' +  self.pay_source + 
+                        '. The following columns are required: ' + ', '.join(self.required_income_columns) }
 
         return message[error_type]
+
+    
+    def test_columns(self, row, string):
+        """
+        Make sure the required columns are present for different 
+        types of spreadsheets.
+
+        Args:
+            row: a set representing column headers from a spreadsheet.
+
+            string: the type of spreadsheet to validate. Possible
+            values are "income" or "spending".
+        """
+        if string == 'income':
+            val = self.required_income_columns.intersection(row)
+        elif string == 'savings':
+            val = self.required_savings_columns.intersection(row)
+        else:
+            sys.exit(self.get_error_msg('bad_spreadsheet_type'))
+        return val
 
 
     def get_pay(self):
@@ -118,7 +147,12 @@ class SavingsRate:
             retval = {} 
             reader = csv.DictReader(csvfile)
             for row in reader:
-                date = str(parser.parse(row['Date']))
+                # Make sure required columns are in the spreadsheet
+                assert self.test_columns(set(row.keys()), 'income') != set([]), \
+                    self.get_error_msg('required_income_column')
+
+                dt_obj = parser.parse(row['Date'])
+                date = dt_obj.strftime(self.date_format)
                 retval[date] = row 
             self.income = retval
 
@@ -130,12 +164,34 @@ class SavingsRate:
         Args:
             None
         """
-        savings_type = {'mint' : self.load_savings_from_mint()}
-
         if self.savings_source == 'mint':
-            return savings_type[self.savings_source]
-        else:
-           return None 
+            return self.load_savings_from_mint()
+        elif self.is_csv(self.savings_source): 
+            return self.load_savings_from_csv()
+
+
+    def load_savings_from_csv(self):
+        """
+        Loads savings data from a .csv file.
+        
+        Args: 
+            None
+
+        Returns:
+            None
+        """
+        with open(self.savings_source) as csvfile:
+            retval = {} 
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                # Make sure required columns are in the spreadsheet
+                assert self.test_columns(set(row.keys()), 'savings') != set([]), \
+                    self.get_error_msg('required_savings_column')
+                dt_obj = parser.parse(row['Date'])
+                date = dt_obj.strftime(self.date_format)
+                retval[date] = row 
+            self.income = retval
+
 
     def load_savings_from_mint(self):
         """
@@ -253,7 +309,7 @@ class SavingsRate:
 
 
 savings_rate = SavingsRate()
-print savings_rate.get_savings()
+pprint(savings_rate.income)
 
 
 
