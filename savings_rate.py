@@ -311,9 +311,23 @@ class SavingsRate:
                                  "(or 'y' or 'n').\n")
 
 
-    def get_monthly_sr(self):
+    def get_monthly_data(self):
         """
-        Calculates the savings rate over time.
+        Builds a data structure for combined income and spending habits.
+
+        Example data structure:
+ 
+             sr  = {'2015-01-29' : {'income' : [3500.0],
+                                    'employer_match' : [120.0],
+                                    'taxes_and_fees' : [450.0],
+                                    'savings' : [1000.0]},
+                    '2015-02-27' : {'income' : [3500.0],
+                                    'employer_match' : [120.0],
+                                    'taxes_and_fees' : [450.0],
+                                    'savings' : [800.0]}}
+
+        Build like this:
+            sr.setdefault(key,[]).append(value)
         """
         income = self.income
         savings = self.savings
@@ -365,6 +379,6 @@ class SavingsRate:
 savings_rate = SavingsRate()
 #pprint(savings_rate.income)
 #savings_rate.plot_savings_rate()
-savings_rate.get_monthly_sr()
+savings_rate.get_monthly_data()
 
 
