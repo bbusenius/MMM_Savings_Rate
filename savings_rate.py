@@ -7,6 +7,9 @@ import keyring
 import certifi
 import sys
 import getpass
+from bokeh.plotting import figure, output_file, show
+from simple_math import take_home_pay, savings_rate
+from file_parsing import is_numeric
 
 # For debugging
 from pprint import pprint 
@@ -190,7 +193,7 @@ class SavingsRate:
                 dt_obj = parser.parse(row['Date'])
                 date = dt_obj.strftime(self.date_format)
                 retval[date] = row 
-            self.income = retval
+            self.savings = retval
 
 
     def load_savings_from_mint(self):
@@ -279,7 +282,7 @@ class SavingsRate:
 
         Returns:
             boolean, the "answer" return value is True for "yes" or False for "no".
-
+        
         Credit:
             I didn't write this one. Credit for this function goes to Trent Mick:
             https://code.activestate.com/recipes/577058/
@@ -308,8 +311,60 @@ class SavingsRate:
                                  "(or 'y' or 'n').\n")
 
 
-savings_rate = SavingsRate()
-pprint(savings_rate.income)
+    def get_monthly_sr(self):
+        """
+        Calculates the savings rate over time.
+        """
+        income = self.income
+        savings = self.savings
+        
+        date_format = '%Y-%m'
 
+        savings_rates = {}
+        
+        # Loop over income and savings
+        for payout in income:
+            pay_dt_obj = datetime.datetime.strptime(payout, self.date_format)
+            pay_month = pay_dt_obj.strftime(date_format)
+
+            for transfer in savings:
+                tran_dt_obj = datetime.datetime.strptime(transfer, self.date_format)
+                tran_month = tran_dt_obj.strftime(date_format)
+
+                if pay_month = tran_month:
+                    savings_rates[pay_month] = ''
+                    # Time to stop this is a bad way to do it. 
+
+        #pprint(income)
+        #print
+        #print
+        #pprint(savings)
+
+    def plot_savings_rate(self):
+        """
+        Plots the savings rate.
+        """
+        # prepare some data
+        x = [1, 2, 3, 4, 5]
+        y = [6, 7, 2, 4, 5]
+
+        # output to static HTML file
+        output_file("lines.html", title="line plot example")
+
+        # create a new plot with a title and axis labels
+        p = figure(title="simple line example", x_axis_label='x', y_axis_label='y')
+
+        # add a line renderer with legend and line thickness
+        p.line(x, y, legend="Temp.", line_width=2)
+
+        # show the results
+        show(p)
+
+
+
+savings_rate = SavingsRate()
+#pprint(savings_rate.income)
+#savings_rate.plot_savings_rate()
+savings_rate.get_monthly_sr()
 
 
