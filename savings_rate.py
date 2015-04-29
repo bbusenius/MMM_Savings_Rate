@@ -9,7 +9,7 @@ import sys
 import getpass
 from bokeh.plotting import figure, output_file, show
 from simple_math import take_home_pay, savings_rate
-from file_parsing import is_numeric
+from file_parsing import is_numeric, are_numeric
 
 # For debugging
 from pprint import pprint 
@@ -40,7 +40,19 @@ class SavingsRate:
 
         # Set a log file
         self.log = self.config.get('Dev', 'logfile')
-    
+
+        # Spreadsheet columns that should have numeric data
+        self.numeric_columns = set([self.config.get('Sources', 'gross_income'), \
+            self.config.get('Sources', 'employer_match'), \
+            ', '.join(self.config.get('Sources', 'taxes_and_fees').split(',', )), \
+            ', '.join(self.config.get('Sources', 'savings_accounts').split(',', ))])
+
+        # Spreadsheet columns we care about, these are just column names
+        self.gross_income = self.config.get('Sources', 'gross_income')
+        self.employer_match = self.config.get('Sources', 'employer_match')
+        self.taxes_and_fees = self.config.get('Sources', 'taxes_and_fees')
+        self.savings_accounts = self.config.get('Sources', 'savings_accounts')
+
         # Ensure that a valid config file exists with the proper variables
         assert len(config) > 0, self.get_error_msg('no_config')
         
@@ -79,7 +91,8 @@ class SavingsRate:
                    'required_savings_column' : 'You are missing a required column in ' +  self.savings_source + 
                         '. The following columns are required: ' + ', '.join(self.required_savings_columns) + '',
                    'required_income_column' : 'You are missing a required column in ' +  self.pay_source + 
-                        '. The following columns are required: ' + ', '.join(self.required_income_columns) }
+                        '. The following columns are required: ' + ', '.join(self.required_income_columns),
+                   'non_numeric_data' : 'Some of your spreadsheet data is not numeric. The following spreadsheet columns should be numeric: ' + ', '.join(self.numeric_columns) }
 
         return message[error_type]
 
@@ -192,6 +205,7 @@ class SavingsRate:
                     self.get_error_msg('required_savings_column')
                 dt_obj = parser.parse(row['Date'])
                 date = dt_obj.strftime(self.date_format)
+
                 retval[date] = row 
             self.savings = retval
 
@@ -264,9 +278,23 @@ class SavingsRate:
             None
 
         Returns:
-            List of accounts used for tracking savings in mint. 
+            Set of accounts used for tracking savings in mint. 
         """
         return set(self.config.get('Mint', 'savings_accounts').split(':'))
+
+
+    def get_taxes_from_csv(self):
+        """
+        Get the .csv column headers used for tracking taxes and fees 
+        in the income related spreadsheet.
+
+        Args:
+            None
+
+        Returns:
+            Set of accounts used for tracking savings in mint. 
+        """
+        return set(self.config.get('Sources', 'taxes_and_fees').split(','))
 
 
     def query_yes_no(self, question, default="yes"):
@@ -329,30 +357,73 @@ class SavingsRate:
         Build like this:
             sr.setdefault(key,[]).append(value)
         """
-        income = self.income
-        savings = self.savings
-        
-        date_format = '%Y-%m'
+        income = self.income.copy()
+        savings = self.savings.copy()
 
-        savings_rates = {}
+        # For this data structure
+        date_format = '%Y-%m'
+        
+        # Column headers used for tracking taxes and fees
+        taxes = self.get_taxes_from_csv()
+
+        # Dataset to return
+        sr = {}
         
         # Loop over income and savings
         for payout in income:
+            # Structure the date
             pay_dt_obj = datetime.datetime.strptime(payout, self.date_format)
             pay_month = pay_dt_obj.strftime(date_format)
 
-            for transfer in savings:
-                tran_dt_obj = datetime.datetime.strptime(transfer, self.date_format)
-                tran_month = tran_dt_obj.strftime(date_format)
+            # Define income data for inclusion
+            income_gross = income[payout][self.gross_income]
+            income_match = income[payout][self.employer_match]
+            income_taxes = [income[payout][val] for val in self.taxes_and_fees.split(',')]
 
-                if pay_month = tran_month:
-                    savings_rates[pay_month] = ''
-                    # Time to stop this is a bad way to do it. 
+            # Validate income spreadsheet data
+            assert are_numeric([income_gross, income_match]) == True, self.get_error_msg('non_numeric_data')
+            assert are_numeric(income_taxes) == True, self.get_error_msg('non_numeric_data')
 
-        #pprint(income)
-        #print
-        #print
-        #pprint(savings)
+            # If the data passes validation, convert it (strings to floats)
+            gross = float(income_gross) 
+            employer_match = float(income_match) 
+            taxes = sum([float(tax) for tax in income_taxes])
+
+            #---Build the datastructure---
+
+            # Set main dictionary key, encapsulte data by month 
+            sr.setdefault(pay_month, {})
+
+            # Set income related qualities for the month
+            sr[pay_month].setdefault('income', []).append(gross)
+            sr[pay_month].setdefault('employer_match', []).append(employer_match)
+            sr[pay_month].setdefault('taxes_and_fees', []).append(taxes)
+
+            if 'savings' not in sr[pay_month]:
+                for transfer in savings:
+                    tran_dt_obj = datetime.datetime.strptime(transfer, self.date_format)
+                    tran_month = tran_dt_obj.strftime(date_format)
+
+                    if tran_month == pay_month:
+
+                        # Define savings data for inclusion
+                        bank = [savings[transfer][val] for val in self.savings_accounts.split(',') if savings[transfer][val] != '']
+
+                        # Validate savings spreadsheet data
+                        assert are_numeric(bank) == True, self.get_error_msg('non_numeric_data')
+                
+                        # If the data passes validation, convert it (strings to floats)
+                        money_in_the_bank = sum([float(investment) for investment in bank])
+
+                        # Set spending related qualities for the month
+                        sr[pay_month].setdefault('savings', []).append(money_in_the_bank)
+
+
+        #for key in sorted(sr.iterkeys()):
+        #    print "%s: %s" % (key, sr[key])
+
+        return sr
+        
 
     def plot_savings_rate(self):
         """
