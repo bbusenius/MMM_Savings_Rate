@@ -7,6 +7,7 @@ import keyring
 import certifi
 import sys
 import getpass
+from collections import OrderedDict
 from bokeh.plotting import figure, output_file, show
 from simple_math import take_home_pay, savings_rate
 from file_parsing import is_numeric, are_numeric
@@ -160,7 +161,7 @@ class SavingsRate:
             None
         """
         with open(self.pay_source) as csvfile:
-            retval = {} 
+            retval = OrderedDict() 
             reader = csv.DictReader(csvfile)
             for row in reader:
                 # Make sure required columns are in the spreadsheet
@@ -197,7 +198,7 @@ class SavingsRate:
             None
         """
         with open(self.savings_source) as csvfile:
-            retval = {} 
+            retval = OrderedDict() 
             reader = csv.DictReader(csvfile)
             for row in reader:
                 # Make sure required columns are in the spreadsheet
@@ -341,7 +342,14 @@ class SavingsRate:
 
     def get_monthly_data(self):
         """
-        Builds a data structure for combined income and spending habits.
+        Crosswalk the data for income and spending into a structure
+        representing one month time periods. Returns an OrderedDict.
+
+        Args:
+            None
+
+        Returns:
+            OrderedDict
 
         Example data structure:
  
@@ -353,9 +361,6 @@ class SavingsRate:
                                     'employer_match' : [120.0],
                                     'taxes_and_fees' : [450.0],
                                     'savings' : [800.0]}}
-
-        Build like this:
-            sr.setdefault(key,[]).append(value)
         """
         income = self.income.copy()
         savings = self.savings.copy()
@@ -367,7 +372,7 @@ class SavingsRate:
         taxes = self.get_taxes_from_csv()
 
         # Dataset to return
-        sr = {}
+        sr = OrderedDict()
         
         # Loop over income and savings
         for payout in income:
@@ -418,10 +423,9 @@ class SavingsRate:
                         # Set spending related qualities for the month
                         sr[pay_month].setdefault('savings', []).append(money_in_the_bank)
 
-
-        #for key in sorted(sr.iterkeys()):
+        #for key in sr.iterkeys():
         #    print "%s: %s" % (key, sr[key])
-
+        
         return sr
         
 
