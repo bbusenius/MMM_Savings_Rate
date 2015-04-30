@@ -8,8 +8,9 @@ import certifi
 import sys
 import getpass
 from collections import OrderedDict
-from bokeh.plotting import figure, output_file, show
-from simple_math import take_home_pay, savings_rate
+from bokeh.plotting import figure, output_file, show, VBox
+#from simple_math import take_home_pay, savings_rate
+import simple_math as sm
 from file_parsing import is_numeric, are_numeric
 
 # For debugging
@@ -423,37 +424,100 @@ class SavingsRate:
                         # Set spending related qualities for the month
                         sr[pay_month].setdefault('savings', []).append(money_in_the_bank)
 
-        #for key in sr.iterkeys():
-        #    print "%s: %s" % (key, sr[key])
-        
         return sr
+
+
+    def get_monthly_savings_rates(self):
+        """
+        Calculates the monthly savings rates over a period of time.
+
+        Args:
+            None
+
+        Returns:
+            A list of tuples where the first item in each tupal is a python
+            date object and the second item in each tuple is the savings 
+            rate for that month. 
+        """
         
+        monthly_data = self.get_monthly_data()
+        monthly_savings_rates = []
+        for month in monthly_data:
+            pay = sm.take_home_pay(sum(monthly_data[month]['income']), sum(monthly_data[month]['employer_match']), monthly_data[month]['taxes_and_fees'])
+            savings = sum(monthly_data[month]['savings']) 
+            spending = pay - savings
+            srate = sm.savings_rate(pay, spending)
+            date = datetime.datetime.strptime(month, '%Y-%m')
+            monthly_savings_rates.append((date, srate))
 
-    def plot_savings_rate(self):
+        return monthly_savings_rates
+
+
+    def average_monthly_savings_rates(self, monthly_rates):
         """
-        Plots the savings rate.
+        Calculates the average monthly savings rate for a period of months.
+
+        Args:
+            monthly_rates: a list of tuples where the first item in each tupal is a python
+            date object and the second item in each tuple is the savings 
+            rate for that month.
+
+        Returns:
+            float
         """
-        # prepare some data
-        x = [1, 2, 3, 4, 5]
-        y = [6, 7, 2, 4, 5]
+        return sm.average([rate[1] for rate in monthly_rates])
 
-        # output to static HTML file
-        output_file("lines.html", title="line plot example")
 
-        # create a new plot with a title and axis labels
-        p = figure(title="simple line example", x_axis_label='x', y_axis_label='y')
+    def plot_savings_rates(self, monthly_rates):
+        """
+        Plots the monthly savings rates for a period of time.
 
-        # add a line renderer with legend and line thickness
-        p.line(x, y, legend="Temp.", line_width=2)
+        Args:
+            monthly_rates: a list of tuples where the first item in each 
+            tupal is a python date object and the second item in each 
+            tuple is the savings rate for that month.
 
-        # show the results
+        Returns:
+            None 
+        """
+
+        # Convenience variables
+        graph_width = int(self.config.get('Graph', 'width'))
+        graph_height = int(self.config.get('Graph', 'height'))
+        average_rate = self.average_monthly_savings_rates(monthly_rates) 
+
+        # Prepare the data
+        x = []
+        y = []
+        for data in monthly_rates:
+            x.append(data[0])
+            y.append(data[1])
+
+
+        # Output to static HTML file
+        output_file("savings-rates.html", title="Monthly Savings Rates")
+        
+        # Create a plot with a title and axis labels
+        p = figure(title="Monthly Savings Rates", y_axis_label='Percentage %', x_axis_type="datetime", \
+            plot_width=graph_width, plot_height=graph_height)
+
+        p.below[0].formatter.formats = dict(years=['%Y'],
+                                     months=['%b %Y'],
+                                     days=['%b %d %Y'])
+
+        # Add a line renderer with legend and line thickness
+        p.line(x, y, legend="Savings Rate", line_width=2)
+        p.circle(x, y, size=6)
+
+        # Plot the average monthly savings rate
+        p.line(x, average_rate, legend="Average rate", line_color="#ff6600", line_dash="4 4")        
+
+        p.legend.orientation = "top_left"
+        # Show the results
         show(p)
 
 
-
 savings_rate = SavingsRate()
-#pprint(savings_rate.income)
-#savings_rate.plot_savings_rate()
-savings_rate.get_monthly_data()
-
+rates = savings_rate.get_monthly_savings_rates()
+savings_rate.plot_savings_rates(rates)
 

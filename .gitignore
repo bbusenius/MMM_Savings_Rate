@@ -3,6 +3,7 @@
 *.swp
 *.orig
 *.log
+*.html
 config.ini
 income.csv
 savings.csv
