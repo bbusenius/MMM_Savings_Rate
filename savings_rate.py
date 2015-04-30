@@ -498,7 +498,7 @@ class SavingsRate:
         output_file("savings-rates.html", title="Monthly Savings Rates")
         
         # Create a plot with a title and axis labels
-        p = figure(title="Monthly Savings Rates", y_axis_label='Percentage %', x_axis_type="datetime", \
+        p = figure(title="Monthly Savings Rates", y_axis_label='% of take home pay', x_axis_type="datetime", \
             plot_width=graph_width, plot_height=graph_height)
 
         p.below[0].formatter.formats = dict(years=['%Y'],
