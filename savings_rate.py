@@ -20,11 +20,11 @@ import cProfile
 
 class SavingsRate:
     """
-    Class of getting and calculating a monthly savings rate
+    Class for getting and calculating a monthly savings rate
     based on information about monthly pay and spending.
     """
     
-    def __init__(self):
+    def __init__(self, user_config='config.ini' ):
         """
         Initialize the object with settings from the config file. 
         """
@@ -36,9 +36,18 @@ class SavingsRate:
         self.required_income_columns = set(['Date'])
         self.required_savings_columns = set(['Date'])
 
-        # Get the configurations
+        # Get the application configurations
+        self.account_config = ConfigParser.RawConfigParser()
+        try:
+            account_config = self.account_config.read('account_config.ini')
+        except:
+            print self.get_error_msg('missing_account_config')
+        self.user = self.account_config.get('Users', 'self').split(',')
+        self.user_enemies = [enemy.split(',') for enemy in self.account_config.get('Users', 'enemies').split('|')]
+
+        # Get the user configurations
         self.config = ConfigParser.RawConfigParser()
-        config = self.config.read('config.ini')
+        config = self.config.read(user_config)
 
         # Set a log file
         self.log = self.config.get('Dev', 'logfile')
@@ -94,7 +103,8 @@ class SavingsRate:
                         '. The following columns are required: ' + ', '.join(self.required_savings_columns) + '',
                    'required_income_column' : 'You are missing a required column in ' +  self.pay_source + 
                         '. The following columns are required: ' + ', '.join(self.required_income_columns),
-                   'non_numeric_data' : 'Some of your spreadsheet data is not numeric. The following spreadsheet columns should be numeric: ' + ', '.join(self.numeric_columns) }
+                   'non_numeric_data' : 'Some of your spreadsheet data is not numeric. The following spreadsheet columns should be numeric: ' + ', '.join(self.numeric_columns),
+                   'missing_account_config' : 'You are missing the main configuration for the application. Make sure you have an account_config.ini.' }
 
         return message[error_type]
 
@@ -381,10 +391,11 @@ class SavingsRate:
             pay_dt_obj = datetime.datetime.strptime(payout, self.date_format)
             pay_month = pay_dt_obj.strftime(date_format)
 
-            # Define income data for inclusion
-            income_gross = income[payout][self.gross_income]
-            income_match = income[payout][self.employer_match]
-            income_taxes = [income[payout][val] for val in self.taxes_and_fees.split(',')]
+            # Get income data for inclusion, cells containing blank 
+            # strings are converted to zeros.
+            income_gross = 0 if income[payout][self.gross_income] == '' else income[payout][self.gross_income]
+            income_match = 0 if income[payout][self.employer_match] == '' else income[payout][self.employer_match]
+            income_taxes = [0 if income[payout][val] == '' else income[payout][val] for val in self.taxes_and_fees.split(',')]
 
             # Validate income spreadsheet data
             assert are_numeric([income_gross, income_match]) == True, self.get_error_msg('non_numeric_data')
@@ -468,6 +479,20 @@ class SavingsRate:
         return sm.average([rate[1] for rate in monthly_rates])
 
 
+class Plot:
+    """
+    A class for plotting the monthly savings rates for an individual 
+    and his or her enemies.
+    """
+
+    def __init__(self, user):
+        """
+        Initialize the object.
+        """
+        # Load the user as a savings_rate object
+        self.user = user
+
+
     def plot_savings_rates(self, monthly_rates):
         """
         Plots the monthly savings rates for a period of time.
@@ -482,9 +507,9 @@ class SavingsRate:
         """
 
         # Convenience variables
-        graph_width = int(self.config.get('Graph', 'width'))
-        graph_height = int(self.config.get('Graph', 'height'))
-        average_rate = self.average_monthly_savings_rates(monthly_rates) 
+        graph_width = int(self.user.config.get('Graph', 'width'))
+        graph_height = int(self.user.config.get('Graph', 'height'))
+        average_rate = self.user.average_monthly_savings_rates(monthly_rates) 
 
         # Prepare the data
         x = []
@@ -506,18 +531,38 @@ class SavingsRate:
                                      days=['%b %d %Y'])
 
         # Add a line renderer with legend and line thickness
-        p.line(x, y, legend="Savings Rate", line_width=2)
+        p.line(x, y, legend="My savings rate", line_width=2)
         p.circle(x, y, size=6)
 
         # Plot the average monthly savings rate
-        p.line(x, average_rate, legend="Average rate", line_color="#ff6600", line_dash="4 4")        
+        p.line(x, average_rate, legend="My average rate", line_color="#ff6600", line_dash="4 4")
+
+        # Plot the savings rate of enemies
+        for war in self.user.user_enemies:
+            enemy_savings_rate = SavingsRate(war[1])
+            enemy_rates = enemy_savings_rate.get_monthly_savings_rates()
+            enemy_x = []
+            enemy_y = []
+
+            for enemy_data in enemy_rates:
+                enemy_x.append(enemy_data[0])
+                enemy_y.append(enemy_data[1])
+
+            # Plot the monthly savings rate for enemies
+            p.line(enemy_x, enemy_y, legend=war[0] + '\'s savings rate', line_color="#8856a7", line_width=2)
+
 
         p.legend.orientation = "top_left"
         # Show the results
         show(p)
+    
 
 
+    
+# Instantiate a savings rate object for a user
 savings_rate = SavingsRate()
-rates = savings_rate.get_monthly_savings_rates()
-savings_rate.plot_savings_rates(rates)
+monthly_rates = savings_rate.get_monthly_savings_rates()
 
+# Plot the user's savings rate
+user_plot = Plot(savings_rate)
+user_plot.plot_savings_rates(monthly_rates)
