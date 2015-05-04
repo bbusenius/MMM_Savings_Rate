@@ -47,7 +47,7 @@ class SavingsRate:
         config = self.config.read(user_config)
 
         # Set a log file
-        self.log = self.config.get('Dev', 'logfile')
+        self.log = self.account_config.get('Dev', 'logfile') if self.account_config.has_section('Dev') else None
 
         # Spreadsheet columns that should have numeric data
         self.numeric_columns = set([self.config.get('Sources', 'gross_income'), \
@@ -78,6 +78,9 @@ class SavingsRate:
         # Load income and savings information
         self.get_pay()
         self.get_savings()
+
+        # Set war mode
+        self.war_mode = self.config.getboolean('Sources', 'war')
 
 
     def get_error_msg(self, error_type):
@@ -489,6 +492,10 @@ class Plot:
         # Load the user as a savings_rate object
         self.user = user
 
+        # Colors for plotting enemy graphs
+        self.colors = ['#B30000', '#E34A33', '#8856a7', '#4D9221', \
+                       '#404040', '#9E0142', '#0C2C84', '#810F7C']
+
 
     def plot_savings_rates(self, monthly_rates):
         """
@@ -507,6 +514,7 @@ class Plot:
         graph_width = int(self.user.config.get('Graph', 'width'))
         graph_height = int(self.user.config.get('Graph', 'height'))
         average_rate = self.user.average_monthly_savings_rates(monthly_rates) 
+        colors = list(self.colors)
 
         # Prepare the data
         x = []
@@ -534,20 +542,24 @@ class Plot:
         # Plot the average monthly savings rate
         p.line(x, average_rate, legend="My average rate", line_color="#ff6600", line_dash="4 4")
 
-        # Plot the savings rate of enemies
-        for war in self.user.user_enemies:
-            enemy_savings_rate = SavingsRate(war[1])
-            enemy_rates = enemy_savings_rate.get_monthly_savings_rates()
-            enemy_x = []
-            enemy_y = []
+        # Plot the savings rate of enemies if war_mode is on
+        if self.user.war_mode == True:
+            for war in self.user.user_enemies:
+                enemy_savings_rate = SavingsRate(war[1])
+                enemy_rates = enemy_savings_rate.get_monthly_savings_rates()
+                enemy_x = []
+                enemy_y = []
 
-            for enemy_data in enemy_rates:
-                enemy_x.append(enemy_data[0])
-                enemy_y.append(enemy_data[1])
+                for enemy_data in enemy_rates:
+                    enemy_x.append(enemy_data[0])
+                    enemy_y.append(enemy_data[1])
 
-            # Plot the monthly savings rate for enemies
-            p.line(enemy_x, enemy_y, legend=war[0] + '\'s savings rate', line_color="#8856a7", line_width=2)
+                # Plot the monthly savings rate for enemies
+                p.line(enemy_x, enemy_y, legend=war[0] + '\'s savings rate', line_color=colors.pop(), line_width=2)
 
+                # Reset the color palette if we run out of colors
+                if len(colors) == 0:
+                    colors = list(self.colors)
 
         p.legend.orientation = "top_left"
         # Show the results
