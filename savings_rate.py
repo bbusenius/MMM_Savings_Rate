@@ -24,7 +24,7 @@ class SavingsRate:
     based on information about monthly pay and spending.
     """
     
-    def __init__(self, user_config='config.ini' ):
+    def __init__(self, user_config='config/config.ini' ):
         """
         Initialize the object with settings from the config file. 
         """
@@ -39,7 +39,7 @@ class SavingsRate:
         # Get the application configurations
         self.account_config = ConfigParser.RawConfigParser()
         try:
-            account_config = self.account_config.read('account_config.ini')
+            account_config = self.account_config.read('config/account_config.ini')
         except:
             print self.get_error_msg('missing_account_config')
         self.user = self.account_config.get('Users', 'self').split(',')
