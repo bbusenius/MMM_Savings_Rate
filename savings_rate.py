@@ -1,4 +1,4 @@
-import ConfigParser
+import configparser
 import csv
 from dateutil import parser
 import datetime
@@ -37,13 +37,13 @@ class SavingsRate:
         self.required_savings_columns = set(['Date'])
 
         # Get the application configurations
-        self.account_config = ConfigParser.RawConfigParser()
+        self.account_config = configparser.RawConfigParser()
         account_config = self.account_config.read('config/account-config.ini')
         self.user = self.account_config.get('Users', 'self').split(',')
         self.user_enemies = [enemy.split(',') for enemy in self.account_config.get('Users', 'enemies').split('|')]
 
         # Get the user configurations
-        self.config = ConfigParser.RawConfigParser()
+        self.config = configparser.RawConfigParser()
         config = self.config.read(user_config)
 
         # Set a log file
@@ -69,7 +69,7 @@ class SavingsRate:
             self.pay_source = self.config.get('Sources', 'pay')
             self.savings_source = self.config.get('Sources', 'savings')
         except:
-            print self.get_error_msg('missing_variable')
+            print(self.get_error_msg('missing_variable'))
 
         # Ensure that proper configurations are set
         assert self.pay_source != '', self.get_error_msg('missing_variable')
@@ -238,7 +238,7 @@ class SavingsRate:
         try:
             username = self.config.get('Mint', 'username')
         except:
-            print self.get_error_msg('no_mint_username')
+            print(self.get_error_msg('no_mint_username'))
         assert username != '', self.get_error_msg('no_mint_username')
 
         # Get the password if available
