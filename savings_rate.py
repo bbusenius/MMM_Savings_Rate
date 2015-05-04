@@ -38,10 +38,7 @@ class SavingsRate:
 
         # Get the application configurations
         self.account_config = ConfigParser.RawConfigParser()
-        try:
-            account_config = self.account_config.read('config/account_config.ini')
-        except:
-            print self.get_error_msg('missing_account_config')
+        account_config = self.account_config.read('config/account-config.ini')
         self.user = self.account_config.get('Users', 'self').split(',')
         self.user_enemies = [enemy.split(',') for enemy in self.account_config.get('Users', 'enemies').split('|')]
 
@@ -104,7 +101,7 @@ class SavingsRate:
                    'required_income_column' : 'You are missing a required column in ' +  self.pay_source + 
                         '. The following columns are required: ' + ', '.join(self.required_income_columns),
                    'non_numeric_data' : 'Some of your spreadsheet data is not numeric. The following spreadsheet columns should be numeric: ' + ', '.join(self.numeric_columns),
-                   'missing_account_config' : 'You are missing the main configuration for the application. Make sure you have an account_config.ini.' }
+                   'missing_account_config' : 'You are missing the main configuration for the application. Make sure you have an account-config.ini.' }
 
         return message[error_type]
 

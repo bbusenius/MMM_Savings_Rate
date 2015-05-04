@@ -6,7 +6,7 @@
 *.html
 config/config.ini
 config/config-uzia.ini
-config/account_config.ini
+config/account-config.ini
 csv/income.csv
 csv/savings.csv
 csv/income-uzia.csv
