@@ -28,26 +28,70 @@ class SavingsRate:
         """
         Initialize the object with settings from the config file. 
         """
-        
-        # Set the date format to use throughout
-        self.date_format = '%Y-%m-%d'
 
-        # Required columns for spreadsheets
-        self.required_income_columns = set(['Date'])
-        self.required_savings_columns = set(['Date'])
+        # ------------------------------------------
+        # === Set config files ===
+        # ------------------------------------------
 
         # Get the application configurations
         self.account_config = configparser.RawConfigParser()
         account_config = self.account_config.read('config/account-config.ini')
-        self.user = self.account_config.get('Users', 'self').split(',')
-        self.user_enemies = [enemy.split(',') for enemy in self.account_config.get('Users', 'enemies').split('|')]
-
+            
         # Get the user configurations
         self.config = configparser.RawConfigParser()
         config = self.config.read(user_config)
 
+
+        # ------------------------------------------
+        # === Make sure config files exist ===
+        # ------------------------------------------
+
+        assert account_config != [], 'You are missing the main configuration for the application. \
+            Make sure you have an account-config.ini.'
+        assert config != [], 'No config.ini file was found. Please create a config file.'
+
+
+        # ------------------------------------------
+        # === Validate config files ===
+        # ------------------------------------------
+
+        try:
+            self.pay_source = self.config.get('Sources', 'pay')
+            self.savings_source = self.config.get('Sources', 'savings')
+        except:
+            print(self.get_error_msg('missing_variable'))
+
+        # Ensure that proper configurations are set
+        assert self.pay_source != '', self.get_error_msg('missing_variable')
+        assert self.savings_source != '', self.get_error_msg('missing_variable')
+
+
+        # ------------------------------------------
+        # === Relevant configurations from the account config ===
+        # ------------------------------------------
+        self.user = self.account_config.get('Users', 'self').split(',')
+        self.user_enemies = [enemy.split(',') for enemy in self.account_config.get('Users', 'enemies').split('|')]
         # Set a log file
         self.log = self.account_config.get('Dev', 'logfile') if self.account_config.has_section('Dev') else None
+
+
+        # ------------------------------------------
+        # === Relevant configurations from the user config  ===
+        # ------------------------------------------
+
+        # Source of savings data (mint.com or .csv)
+        self.savings_source = self.config.get('Sources', 'savings')
+        # Set war mode
+        self.war_mode = self.config.getboolean('Sources', 'war')
+    
+
+        # ------------------------------------------
+        # === Spreadsheet validation ===
+        # ------------------------------------------
+
+        # Required columns for spreadsheets
+        self.required_income_columns = set(['Date'])
+        self.required_savings_columns = set(['Date'])
 
         # Spreadsheet columns that should have numeric data
         self.numeric_columns = set([self.config.get('Sources', 'gross_income'), \
@@ -61,26 +105,17 @@ class SavingsRate:
         self.taxes_and_fees = self.config.get('Sources', 'taxes_and_fees')
         self.savings_accounts = self.config.get('Sources', 'savings_accounts')
 
-        # Ensure that a valid config file exists with the proper variables
-        assert len(config) > 0, self.get_error_msg('no_config')
-        
-        # Get sources for pay and spending information
-        try:
-            self.pay_source = self.config.get('Sources', 'pay')
-            self.savings_source = self.config.get('Sources', 'savings')
-        except:
-            print(self.get_error_msg('missing_variable'))
 
-        # Ensure that proper configurations are set
-        assert self.pay_source != '', self.get_error_msg('missing_variable')
-        assert self.savings_source != '', self.get_error_msg('missing_variable')
+        # ------------------------------------------
+        # === Finish loading data ===
+        # ------------------------------------------
+
+        # Set the date format to use
+        self.date_format = '%Y-%m-%d'
 
         # Load income and savings information
         self.get_pay()
-        self.get_savings()
-
-        # Set war mode
-        self.war_mode = self.config.getboolean('Sources', 'war')
+        self.get_savings() 
 
 
     def get_error_msg(self, error_type):
@@ -95,16 +130,14 @@ class SavingsRate:
         """
 
         # Error messages
-        message = {'no_config' : 'No config.ini file was found. Please create a config file',
-                   'missing_variable' : 'You are missing a required variable in the "Sources" section of config.ini',
+        message = {'missing_variable' : 'You are missing a required variable in the "Sources" section of config.ini',
                    'no_mint_username' : 'Please set your username in the "Mint" section of the config.ini',
                    'bad_spreadsheet_type' : 'You passed an improper spreadsheet type to test_columns()',
                    'required_savings_column' : 'You are missing a required column in ' +  self.savings_source + 
                         '. The following columns are required: ' + ', '.join(self.required_savings_columns) + '',
                    'required_income_column' : 'You are missing a required column in ' +  self.pay_source + 
                         '. The following columns are required: ' + ', '.join(self.required_income_columns),
-                   'non_numeric_data' : 'Some of your spreadsheet data is not numeric. The following spreadsheet columns should be numeric: ' + ', '.join(self.numeric_columns),
-                   'missing_account_config' : 'You are missing the main configuration for the application. Make sure you have an account-config.ini.' }
+                   'non_numeric_data' : 'Some of your spreadsheet data is not numeric. The following spreadsheet columns should be numeric: ' + ', '.join(self.numeric_columns)}
 
         return message[error_type]
 
