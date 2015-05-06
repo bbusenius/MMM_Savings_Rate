@@ -488,7 +488,7 @@ class SavingsRate:
         monthly_savings_rates = []
         for month in monthly_data:
             pay = sm.take_home_pay(sum(monthly_data[month]['income']), sum(monthly_data[month]['employer_match']), monthly_data[month]['taxes_and_fees'])
-            savings = sum(monthly_data[month]['savings']) 
+            savings = sum(monthly_data[month]['savings']) if 'savings' in monthly_data[month] else 0 
             spending = pay - savings
             srate = sm.savings_rate(pay, spending)
             date = datetime.datetime.strptime(month, '%Y-%m')
