@@ -18,72 +18,80 @@ from pprint import pprint
 import logging
 import cProfile
 
-class SavingsRate:
+
+class SRConfig:
     """
-    Class for getting and calculating a monthly savings rate
-    based on information about monthly pay and spending.
+    Class for loading configurations to pass to the 
+    savings rate object.
     """
-    
-    def __init__(self, user_config='config/config.ini' ):
+    def __init__(self, mode='ini', user_conf=None):
+        self.mode = mode
+        self.user_ini = user_conf
+        self.load_account_config()
+        self.load_user_config()
+
+        # Set the date format to use
+        self.date_format = '%Y-%m-%d'
+
+
+    def load_account_config(self):
         """
-        Initialize the object with settings from the config file. 
+        Wrapper function, loads configurations from 
+        ini files or a database.
         """
+        if self.mode == 'ini':
+            config = self.load_account_config_from_ini()
+        elif self.mode == 'db':
+            config = self.load_account_config_from_db()
 
-        # ------------------------------------------
-        # === Set config files ===
-        # ------------------------------------------
-
-        # Get the application configurations
-        self.account_config = configparser.RawConfigParser()
-        account_config = self.account_config.read('config/account-config.ini')
-            
-        # Get the user configurations
-        self.config = configparser.RawConfigParser()
-        config = self.config.read(user_config)
-
-
-        # ------------------------------------------
-        # === Make sure config files exist ===
-        # ------------------------------------------
-
-        assert account_config != [], 'You are missing the main configuration for the application. \
+        assert config != [], 'You are missing the main configuration for the application. \
             Make sure you have an account-config.ini.'
+
+        return config
+
+
+    def load_user_config(self):
+        """
+        Wrapper function, load the user configurations 
+        from .ini files or the db
+        """
+        if self.mode == 'ini':
+            config = self.load_user_config_from_ini()
+        elif self.mode == 'db':
+            config = self.load_user_config_from_db()
+        return config
+
+
+    def load_user_config_from_ini(self):
+        """
+        Get user configurations from .ini files.
+        """
+        # Get the user configurations
+        self.user_config = configparser.RawConfigParser()
+        config = self.user_config.read(self.user_ini)
+
         assert config != [], 'No config.ini file was found. Please create a config file.'
 
+        # Source of savings data (mint.com or .csv)
+        self.savings_source = self.user_config.get('Sources', 'savings')
 
-        # ------------------------------------------
-        # === Validate config files ===
-        # ------------------------------------------
+        # Source of income data
+        self.pay_source = self.user_config.get('Sources', 'pay')
 
-        try:
-            self.pay_source = self.config.get('Sources', 'pay')
-            self.savings_source = self.config.get('Sources', 'savings')
-        except:
-            print(self.get_error_msg('missing_variable'))
+        # Set war mode
+        self.war_mode = self.user_config.getboolean('Sources', 'war')
 
         # Ensure that proper configurations are set
-        assert self.pay_source != '', self.get_error_msg('missing_variable')
-        assert self.savings_source != '', self.get_error_msg('missing_variable')
+        assert self.pay_source != '', error_msg
+        assert self.savings_source != '', error_msg
 
-
-        # ------------------------------------------
-        # === Relevant configurations from the account config ===
-        # ------------------------------------------
-        self.user = self.account_config.get('Users', 'self').split(',')
-        self.user_enemies = [enemy.split(',') for enemy in self.account_config.get('Users', 'enemies').split('|')]
-        # Set a log file
-        self.log = self.account_config.get('Dev', 'logfile') if self.account_config.has_section('Dev') else None
-
-
-        # ------------------------------------------
-        # === Relevant configurations from the user config  ===
-        # ------------------------------------------
-
-        # Source of savings data (mint.com or .csv)
-        self.savings_source = self.config.get('Sources', 'savings')
-        # Set war mode
-        self.war_mode = self.config.getboolean('Sources', 'war')
-    
+        # Savings and income sources
+        error_msg = 'You are missing a required variable in the "Sources" section of config.ini'
+        try:
+            self.pay_source = self.user_config.get('Sources', 'pay')
+            self.savings_source = self.user_config.get('Sources', 'savings')
+        except:
+            print(error_msg)
 
         # ------------------------------------------
         # === Spreadsheet validation ===
@@ -94,24 +102,67 @@ class SavingsRate:
         self.required_savings_columns = set(['Date'])
 
         # Spreadsheet columns that should have numeric data
-        self.numeric_columns = set([self.config.get('Sources', 'gross_income'), \
-            self.config.get('Sources', 'employer_match'), \
-            ', '.join(self.config.get('Sources', 'taxes_and_fees').split(',', )), \
-            ', '.join(self.config.get('Sources', 'savings_accounts').split(',', ))])
+        self.numeric_columns = set([self.user_config.get('Sources', 'gross_income'), \
+            self.user_config.get('Sources', 'employer_match'), \
+            ', '.join(self.user_config.get('Sources', 'taxes_and_fees').split(',', )), \
+            ', '.join(self.user_config.get('Sources', 'savings_accounts').split(',', ))])
 
         # Spreadsheet columns we care about, these are just column names
-        self.gross_income = self.config.get('Sources', 'gross_income')
-        self.employer_match = self.config.get('Sources', 'employer_match')
-        self.taxes_and_fees = self.config.get('Sources', 'taxes_and_fees')
-        self.savings_accounts = self.config.get('Sources', 'savings_accounts')
+        self.gross_income = self.user_config.get('Sources', 'gross_income')
+        self.employer_match = self.user_config.get('Sources', 'employer_match')
+        self.taxes_and_fees = self.user_config.get('Sources', 'taxes_and_fees')
+        self.savings_accounts = self.user_config.get('Sources', 'savings_accounts')
 
 
-        # ------------------------------------------
-        # === Finish loading data ===
-        # ------------------------------------------
+    
+    def load_user_config_from_db(self):
+        """
+        Get user configurations from the database.
+        """
+        pass
 
-        # Set the date format to use
-        self.date_format = '%Y-%m-%d'
+
+    def load_account_config_from_ini(self):
+        """
+        Get the configurations from an .ini file.
+        """
+        # Load the ini
+        self.account_config = configparser.RawConfigParser()
+        account_config = self.account_config.read('config/account-config.ini')
+
+        # Crosswalk the data
+        self.user = self.account_config.get('Users', 'self').split(',')
+        self.user_enemies = [enemy.split(',') for enemy in self.account_config.get('Users', 'enemies').split('|')]
+
+        # Set a log file
+        self.log = self.account_config.get('Dev', 'logfile') if self.account_config.has_section('Dev') else None
+
+
+
+    def load_account_config_from_db(self):
+        """
+        Get configurations from a database.
+        """
+        pass
+
+
+
+class SavingsRate:
+    """
+    Class for getting and calculating a monthly savings rate
+    based on information about monthly pay and spending.
+    """
+    
+    def __init__(self, config):
+        """
+        Initialize the object with settings from the config file. 
+
+        Args:
+            config: object
+        """
+
+        # Load the configurations
+        self.config = config 
 
         # Load income and savings information
         self.get_pay()
@@ -154,9 +205,9 @@ class SavingsRate:
             values are "income" or "spending".
         """
         if string == 'income':
-            val = self.required_income_columns.intersection(row)
+            val = self.config.required_income_columns.intersection(row)
         elif string == 'savings':
-            val = self.required_savings_columns.intersection(row)
+            val = self.config.required_savings_columns.intersection(row)
         else:
             sys.exit(self.get_error_msg('bad_spreadsheet_type'))
         return val
@@ -173,7 +224,7 @@ class SavingsRate:
         """
         pay_type = {'csv' : self.load_pay_from_csv()} 
    
-        if self.is_csv(self.pay_source): 
+        if self.is_csv(self.config.pay_source): 
             return pay_type['csv']
         else:
             return None 
@@ -204,7 +255,7 @@ class SavingsRate:
         Returns:
             None
         """
-        with open(self.pay_source) as csvfile:
+        with open(self.config.pay_source) as csvfile:
             retval = OrderedDict() 
             reader = csv.DictReader(csvfile)
             for row in reader:
@@ -213,7 +264,7 @@ class SavingsRate:
                     self.get_error_msg('required_income_column')
 
                 dt_obj = parser.parse(row['Date'])
-                date = dt_obj.strftime(self.date_format)
+                date = dt_obj.strftime(self.config.date_format)
                 retval[date] = row 
             self.income = retval
 
@@ -225,9 +276,9 @@ class SavingsRate:
         Args:
             None
         """
-        if self.savings_source == 'mint':
+        if self.config.savings_source == 'mint':
             return self.load_savings_from_mint()
-        elif self.is_csv(self.savings_source): 
+        elif self.is_csv(self.config.savings_source): 
             return self.load_savings_from_csv()
 
 
@@ -241,7 +292,7 @@ class SavingsRate:
         Returns:
             None
         """
-        with open(self.savings_source) as csvfile:
+        with open(self.config.savings_source) as csvfile:
             retval = OrderedDict() 
             reader = csv.DictReader(csvfile)
             for row in reader:
@@ -249,7 +300,7 @@ class SavingsRate:
                 assert self.test_columns(set(row.keys()), 'savings') != set([]), \
                     self.get_error_msg('required_savings_column')
                 dt_obj = parser.parse(row['Date'])
-                date = dt_obj.strftime(self.date_format)
+                date = dt_obj.strftime(self.config.date_format)
 
                 retval[date] = row 
             self.savings = retval
@@ -339,7 +390,7 @@ class SavingsRate:
         Returns:
             Set of accounts used for tracking savings in mint. 
         """
-        return set(self.config.get('Sources', 'taxes_and_fees').split(','))
+        return set(self.config.user_config.get('Sources', 'taxes_and_fees').split(','))
 
 
     def query_yes_no(self, question, default="yes"):
@@ -421,14 +472,14 @@ class SavingsRate:
         # Loop over income and savings
         for payout in income:
             # Structure the date
-            pay_dt_obj = datetime.datetime.strptime(payout, self.date_format)
+            pay_dt_obj = datetime.datetime.strptime(payout, self.config.date_format)
             pay_month = pay_dt_obj.strftime(date_format)
 
             # Get income data for inclusion, cells containing blank 
             # strings are converted to zeros.
-            income_gross = 0 if income[payout][self.gross_income] == '' else income[payout][self.gross_income]
-            income_match = 0 if income[payout][self.employer_match] == '' else income[payout][self.employer_match]
-            income_taxes = [0 if income[payout][val] == '' else income[payout][val] for val in self.taxes_and_fees.split(',')]
+            income_gross = 0 if income[payout][self.config.gross_income] == '' else income[payout][self.config.gross_income]
+            income_match = 0 if income[payout][self.config.employer_match] == '' else income[payout][self.config.employer_match]
+            income_taxes = [0 if income[payout][val] == '' else income[payout][val] for val in self.config.taxes_and_fees.split(',')]
 
             # Validate income spreadsheet data
             assert are_numeric([income_gross, income_match]) == True, self.get_error_msg('non_numeric_data')
@@ -451,13 +502,13 @@ class SavingsRate:
 
             if 'savings' not in sr[pay_month]:
                 for transfer in savings:
-                    tran_dt_obj = datetime.datetime.strptime(transfer, self.date_format)
+                    tran_dt_obj = datetime.datetime.strptime(transfer, self.config.date_format)
                     tran_month = tran_dt_obj.strftime(date_format)
 
                     if tran_month == pay_month:
 
                         # Define savings data for inclusion
-                        bank = [savings[transfer][val] for val in self.savings_accounts.split(',') if savings[transfer][val] != '']
+                        bank = [savings[transfer][val] for val in self.config.savings_accounts.split(',') if savings[transfer][val] != '']
 
                         # Validate savings spreadsheet data
                         assert are_numeric(bank) == True, self.get_error_msg('non_numeric_data')
@@ -544,8 +595,8 @@ class Plot:
         """
 
         # Convenience variables
-        graph_width = int(self.user.config.get('Graph', 'width'))
-        graph_height = int(self.user.config.get('Graph', 'height'))
+        graph_width = int(self.user.config.user_config.get('Graph', 'width'))
+        graph_height = int(self.user.config.user_config.get('Graph', 'height'))
         average_rate = self.user.average_monthly_savings_rates(monthly_rates) 
         colors = list(self.colors)
 
@@ -576,9 +627,10 @@ class Plot:
         p.line(x, average_rate, legend="My average rate", line_color="#ff6600", line_dash="4 4")
 
         # Plot the savings rate of enemies if war_mode is on
-        if self.user.war_mode == True:
-            for war in self.user.user_enemies:
-                enemy_savings_rate = SavingsRate(war[1])
+        if self.user.config.war_mode == True:
+            for war in self.user.config.user_enemies:
+                enemy_config = SRConfig('ini', war[2])
+                enemy_savings_rate = SavingsRate(enemy_config)
                 enemy_rates = enemy_savings_rate.get_monthly_savings_rates()
                 enemy_x = []
                 enemy_y = []
@@ -588,7 +640,7 @@ class Plot:
                     enemy_y.append(enemy_data[1])
 
                 # Plot the monthly savings rate for enemies
-                p.line(enemy_x, enemy_y, legend=war[0] + '\'s savings rate', line_color=colors.pop(), line_width=2)
+                p.line(enemy_x, enemy_y, legend=war[1] + '\'s savings rate', line_color=colors.pop(), line_width=2)
 
                 # Reset the color palette if we run out of colors
                 if len(colors) == 0:
@@ -599,10 +651,11 @@ class Plot:
         show(p)
     
 
-
+# Instantiate a savings rate config object
+config = SRConfig('ini', 'config/config.ini')
     
 # Instantiate a savings rate object for a user
-savings_rate = SavingsRate()
+savings_rate = SavingsRate(config)
 monthly_rates = savings_rate.get_monthly_savings_rates()
 
 # Plot the user's savings rate
