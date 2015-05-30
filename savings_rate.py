@@ -5,6 +5,7 @@ import datetime
 import mintapi
 import keyring
 import certifi
+import psycopg2
 import sys
 import getpass
 from collections import OrderedDict
@@ -23,6 +24,13 @@ class SRConfig:
     """
     Class for loading configurations to pass to the 
     savings rate object.
+
+    Args:
+        mode: a string representing a general source
+        for data. Takes "ini" or "postgres".
+
+        user_conf: a string path to a user .ini file.
+        Only necessary if the mode is set to "ini".
     """
     def __init__(self, mode='ini', user_conf=None):
         self.mode = mode
@@ -41,8 +49,9 @@ class SRConfig:
         """
         if self.mode == 'ini':
             config = self.load_account_config_from_ini()
-        elif self.mode == 'db':
-            config = self.load_account_config_from_db()
+        elif self.mode == 'postgres':
+            # CHANGE LATER
+            config = self.load_account_config_from_ini()
 
         assert config != [], 'You are missing the main configuration for the application. \
             Make sure you have an account-config.ini.'
@@ -57,8 +66,8 @@ class SRConfig:
         """
         if self.mode == 'ini':
             config = self.load_user_config_from_ini()
-        elif self.mode == 'db':
-            config = self.load_user_config_from_db()
+        elif self.mode == 'postgres':
+            config = self.load_user_config_for_postgres()
         return config
 
 
@@ -113,14 +122,30 @@ class SRConfig:
         self.taxes_and_fees = self.user_config.get('Sources', 'taxes_and_fees')
         self.savings_accounts = self.user_config.get('Sources', 'savings_accounts')
 
-
     
-    def load_user_config_from_db(self):
+    def load_user_config_for_postgres(self):
         """
         Get user configurations from the database.
         """
-        pass
+        # Get user configurations
+        self.user_config = configparser.RawConfigParser()
+        config = self.user_config.read(self.user_ini)
 
+        # Get database configurations
+        self.db_host = self.user_config.get('PostgreSQL', 'host')
+        self.db_name = self.user_config.get('PostgreSQL', 'dbname')
+        self.db_user = self.user_config.get('PostgreSQL', 'user')
+        self.db_password = self.user_config.get('PostgreSQL', 'password')
+
+        # Set configurations
+        self.pay_source = self.user_config.get('Sources', 'pay')
+        self.savings_source = self.user_config.get('Sources', 'savings')
+        self.gross_income = self.user_config.get('Sources', 'gross_income')
+        self.employer_match = self.user_config.get('Sources', 'employer_match')
+        self.taxes_and_fees = self.user_config.get('Sources', 'taxes_and_fees')
+        self.savings_accounts = self.user_config.get('Sources', 'savings_accounts')
+        self.war_mode = self.user_config.getboolean('Sources', 'war')
+    
 
     def load_account_config_from_ini(self):
         """
@@ -139,7 +164,7 @@ class SRConfig:
 
 
 
-    def load_account_config_from_db(self):
+    def load_account_config_from_postgres(self):
         """
         Get configurations from a database.
         """
@@ -213,6 +238,26 @@ class SavingsRate:
         return val
 
 
+    def connect_to_postgres_db(self):
+        """
+        Connects to a PostgreSQL database.
+
+        Returns:
+            A cursor object.
+        """
+        #Define our connection string
+        conn_string = "host='%s' dbname='%s' user='%s' password='%s'" % (self.config.db_host, self.config.db_name, self.config.db_user, self.config.db_password)
+
+        # Print a message
+        print("Connecting to database...")
+     
+        # Get a connection, if a connect cannot be made an exception will be raised here
+        conn = psycopg2.connect(conn_string)
+     
+        # conn.cursor will return a cursor object, you can use this cursor to perform queries
+        return conn.cursor()
+
+
     def get_pay(self):
         """
         Loads payment data from a .csv fle.
@@ -222,12 +267,12 @@ class SavingsRate:
 
         Returns:
         """
-        pay_type = {'csv' : self.load_pay_from_csv()} 
-   
-        if self.is_csv(self.config.pay_source): 
-            return pay_type['csv']
+        if self.config.mode == 'ini' and self.is_csv(self.config.pay_source): 
+            return self.load_pay_from_csv()
+        elif self.config.mode == 'postgres':
+            return self.load_pay_from_postgres()
         else:
-            return None 
+            print('Problem with income information!')
 
 
     def is_csv(self, name):
@@ -244,6 +289,64 @@ class SavingsRate:
         """
         return name[-4:] == '.csv'
 
+
+    def load_pay_from_postgres(self):
+        """
+        Loads income data from a PostgreSQL database 
+        and stores it in self.income.
+        Expects number related columns to contain 
+        python Decimal objects.
+
+        Args: 
+            None
+
+        Returns:
+            None
+        """
+        # Connect to the database and retrieve the needed fields
+        cursor = self.connect_to_postgres_db()
+        query = 'select date, gross_pay, employer_match, taxes_and_fees '\
+            'from %s where user_id = %s' % (self.config.pay_source, self.config.user[0])
+        cursor.execute(query)
+
+        # Loop over the info and build a datastructure
+        retval = OrderedDict()
+        for date, gross_pay, employer_match, taxes_and_fees in cursor.fetchall():
+            
+            date_string = date.strftime(self.config.date_format)
+            # Load the data, dictionary keys are entirely arbitrary
+            retval[date_string] = {'Date': date, self.config.gross_income : gross_pay, self.config.employer_match : employer_match, self.config.taxes_and_fees : taxes_and_fees } 
+
+        self.income = retval
+
+
+    def load_savings_from_postgres(self):
+        """
+        Loads savings data from a PostgreSQL database 
+        and stores it in self.savings.
+        Expects number related columns to contain 
+        python Decimal objects.
+
+        Args: 
+            None
+
+        Returns:
+            None
+        """
+        # Connect to the database and retrieve the needed fields
+        cursor = self.connect_to_postgres_db()
+        query = 'select date, amount '\
+            'from %s where user_id = %s' % (self.config.savings_source, self.config.user[0])
+        cursor.execute(query)
+
+        # Loop over the info and build a datastructure
+        retval = OrderedDict()
+        for date, amount in cursor.fetchall():
+            date_string = date.strftime(self.config.date_format)
+            # Load the data, dictionary keys are entirely arbitrary
+            retval[date_string] = {'Date': date, self.config.savings_accounts : amount } 
+        self.savings = retval
+        
 
     def load_pay_from_csv(self):
         """
@@ -265,7 +368,7 @@ class SavingsRate:
 
                 dt_obj = parser.parse(row['Date'])
                 date = dt_obj.strftime(self.config.date_format)
-                retval[date] = row 
+                retval[date] = row
             self.income = retval
 
 
@@ -278,8 +381,13 @@ class SavingsRate:
         """
         if self.config.savings_source == 'mint':
             return self.load_savings_from_mint()
-        elif self.is_csv(self.config.savings_source): 
+        elif self.config.mode == 'ini' and  self.is_csv(self.config.savings_source): 
             return self.load_savings_from_csv()
+        elif self.config.mode == 'postgres':
+            return self.load_savings_from_postgres()
+        else:
+            print('Problem with savings information!')
+
 
 
     def load_savings_from_csv(self):
@@ -626,6 +734,7 @@ class Plot:
         # Plot the average monthly savings rate
         p.line(x, average_rate, legend="My average rate", line_color="#ff6600", line_dash="4 4")
 
+        # Is PostgreSQL
         # Plot the savings rate of enemies if war_mode is on
         if self.user.config.war_mode == True:
             for war in self.user.config.user_enemies:
@@ -652,8 +761,11 @@ class Plot:
     
 
 # Instantiate a savings rate config object
-config = SRConfig('ini', 'config/config.ini')
-    
+#config = SRConfig('ini', 'config/config.ini')
+
+# TEST config fr postgres integration
+config =  SRConfig('postgres', 'config/config.ini')
+   
 # Instantiate a savings rate object for a user
 savings_rate = SavingsRate(config)
 monthly_rates = savings_rate.get_monthly_savings_rates()
