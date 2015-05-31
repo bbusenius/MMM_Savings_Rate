@@ -30,12 +30,28 @@ class SRConfig:
         for data. Takes "ini" or "postgres".
 
         user_conf: a string path to a user .ini file.
-        Only necessary if the mode is set to "ini".
+
+        user: optional, an integer representing the 
+        unique id of a user. This is only needed when 
+        running as part of an application connected to 
+        a database. Not necessary when running with 
+        csv files.
+
+        enemies: optional, a list of integers representing
+        the unique ids of user enemies. Like the above, this 
+        is only needed when running as part of an application 
+        connected to a database. Not necessary when running 
+        with csv files.
     """
-    def __init__(self, mode='ini', user_conf=None):
+    def __init__(self, mode='ini', user_conf=None, user=None, enemies=None):
         self.mode = mode
         self.user_ini = user_conf
-        self.load_account_config()
+        if self.mode == 'ini':
+            self.load_account_config()
+        elif self.mode == 'postgres':
+            self.user = [user]
+            self.user_enemies = [[]]
+
         self.load_user_config()
 
         # Set the date format to use
@@ -48,9 +64,6 @@ class SRConfig:
         ini files or a database.
         """
         if self.mode == 'ini':
-            config = self.load_account_config_from_ini()
-        elif self.mode == 'postgres':
-            # CHANGE LATER
             config = self.load_account_config_from_ini()
 
         assert config != [], 'You are missing the main configuration for the application. \
@@ -161,7 +174,7 @@ class SRConfig:
 
         # Set a log file
         self.log = self.account_config.get('Dev', 'logfile') if self.account_config.has_section('Dev') else None
-
+        
 
 
     def load_account_config_from_postgres(self):
@@ -764,12 +777,12 @@ class Plot:
 #config = SRConfig('ini', 'config/config.ini')
 
 # TEST config fr postgres integration
-config =  SRConfig('postgres', 'config/config.ini')
+#config =  SRConfig('postgres', 'config/config.ini')
    
 # Instantiate a savings rate object for a user
-savings_rate = SavingsRate(config)
-monthly_rates = savings_rate.get_monthly_savings_rates()
+#savings_rate = SavingsRate(config)
+#monthly_rates = savings_rate.get_monthly_savings_rates()
 
 # Plot the user's savings rate
-user_plot = Plot(savings_rate)
-user_plot.plot_savings_rates(monthly_rates)
+#user_plot = Plot(savings_rate)
+#user_plot.plot_savings_rates(monthly_rates)

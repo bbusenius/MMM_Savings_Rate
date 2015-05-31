@@ -5,6 +5,7 @@
 *.log
 *.html
 config/config.ini
+config/savings_rate_wars.ini
 config/config-uzia.ini
 config/account-config.ini
 csv/income.csv
