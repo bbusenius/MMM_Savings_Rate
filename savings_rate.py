@@ -10,6 +10,7 @@ import sys
 import getpass
 from collections import OrderedDict
 from bokeh.plotting import figure, output_file, show, VBox
+from bokeh.embed import components
 #from simple_math import take_home_pay, savings_rate
 import simple_math as sm
 from file_parsing import is_numeric, are_numeric
@@ -702,7 +703,7 @@ class Plot:
                        '#404040', '#9E0142', '#0C2C84', '#810F7C']
 
 
-    def plot_savings_rates(self, monthly_rates):
+    def plot_savings_rates(self, monthly_rates, embed=False):
         """
         Plots the monthly savings rates for a period of time.
 
@@ -710,6 +711,9 @@ class Plot:
             monthly_rates: a list of tuples where the first item in each 
             tupal is a python date object and the second item in each 
             tuple is the savings rate for that month.
+
+            embed, boolean defaults to False. Setting to true returns a 
+            plot for embedding in a web application.
 
         Returns:
             None 
@@ -733,8 +737,7 @@ class Plot:
         output_file("savings-rates.html", title="Monthly Savings Rates")
         
         # Create a plot with a title and axis labels
-        p = figure(title="Monthly Savings Rates", y_axis_label='% of take home pay', x_axis_type="datetime", \
-            plot_width=graph_width, plot_height=graph_height)
+        p = figure(title="Monthly Savings Rates", y_axis_label='% of take home pay', x_axis_type="datetime")
 
         p.below[0].formatter.formats = dict(years=['%Y'],
                                      months=['%b %Y'],
@@ -769,8 +772,16 @@ class Plot:
                     colors = list(self.colors)
 
         p.legend.orientation = "top_left"
+
+
         # Show the results
-        show(p)
+        if embed == False:
+            # Set the width and the height
+            p.plot_height=graph_height 
+            p.plot_width=graph_width 
+            show(p)
+        else:
+            return components(p)
     
 
 # Instantiate a savings rate config object
