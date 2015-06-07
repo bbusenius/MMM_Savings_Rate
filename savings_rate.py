@@ -754,7 +754,14 @@ class Plot:
         # Plot the savings rate of enemies if war_mode is on
         if self.user.config.war_mode == True:
             for war in self.user.config.user_enemies:
-                enemy_config = SRConfig('ini', war[2])
+                #Enemy mode should always be the same as user mode
+                enemy_mode = self.user.config.mode
+
+                # Website mode
+                if enemy_mode == 'postgres':
+                    enemy_path = self.user.config.user_ini
+
+                enemy_config = SRConfig(enemy_mode, war[2], war[0], [])
                 enemy_savings_rate = SavingsRate(enemy_config)
                 enemy_rates = enemy_savings_rate.get_monthly_savings_rates()
                 enemy_x = []
