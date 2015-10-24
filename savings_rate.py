@@ -329,9 +329,30 @@ class SavingsRate:
             
             date_string = date.strftime(self.config.date_format)
             # Load the data, dictionary keys are entirely arbitrary
-            retval[date_string] = {'Date': date, self.config.gross_income : gross_pay, self.config.employer_match : employer_match, self.config.taxes_and_fees : taxes_and_fees } 
+            retval[date_string] = {'Date': date, 
+                                    self.config.gross_income : self.clean_num(gross_pay), 
+                                    self.config.employer_match : self.clean_num(employer_match), 
+                                    self.config.taxes_and_fees : self.clean_num(taxes_and_fees)} 
 
         self.income = retval
+
+
+    def clean_num(self, number):
+        """
+        Looks at numeric values to determine if they are numeric. 
+        Converts empty strings and null values to 0.0.
+
+        Args:
+            number: Float, int, decimal, empty string, or null value.
+
+        Returns:
+            float, int, or deciaml
+        """
+        if number == '' or number == None:
+            retval = 0.0
+        elif is_numeric(number):
+            retval = number
+        return retval
 
 
     def load_savings_from_postgres(self):
