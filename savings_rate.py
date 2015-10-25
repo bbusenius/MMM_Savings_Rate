@@ -11,7 +11,7 @@ import getpass
 from collections import OrderedDict
 from bokeh.plotting import figure, output_file, show, VBox
 from bokeh.embed import components
-#from simple_math import take_home_pay, savings_rate
+from decimal import *
 import simple_math as sm
 from file_parsing import is_numeric, are_numeric
 
@@ -346,7 +346,7 @@ class SavingsRate:
             number: Float, int, decimal, empty string, or null value.
 
         Returns:
-            float, int, or deciaml
+            float, int, or decimal
         """
         if number == '' or number == None:
             retval = 0.0
@@ -628,10 +628,10 @@ class SavingsRate:
             assert are_numeric([income_gross, income_match]) == True, self.get_error_msg('non_numeric_data')
             assert are_numeric(income_taxes) == True, self.get_error_msg('non_numeric_data')
 
-            # If the data passes validation, convert it (strings to floats)
-            gross = float(income_gross) 
-            employer_match = float(income_match) 
-            taxes = sum([float(tax) for tax in income_taxes])
+            # If the data passes validation, convert it (strings to Decimal objects)
+            gross = Decimal(income_gross) 
+            employer_match = Decimal(income_match) 
+            taxes = sum([Decimal(tax) for tax in income_taxes])
 
             #---Build the datastructure---
 
@@ -656,8 +656,8 @@ class SavingsRate:
                         # Validate savings spreadsheet data
                         assert are_numeric(bank) == True, self.get_error_msg('non_numeric_data')
                 
-                        # If the data passes validation, convert it (strings to floats)
-                        money_in_the_bank = sum([float(investment) for investment in bank])
+                        # If the data passes validation, convert it (strings to Decimal objects)
+                        money_in_the_bank = sum([Decimal(investment) for investment in bank])
 
                         # Set spending related qualities for the month
                         sr[pay_month].setdefault('savings', []).append(money_in_the_bank)
@@ -681,10 +681,10 @@ class SavingsRate:
         monthly_data = self.get_monthly_data()
         monthly_savings_rates = []
         for month in monthly_data:
-            pay = sm.take_home_pay(sum(monthly_data[month]['income']), sum(monthly_data[month]['employer_match']), monthly_data[month]['taxes_and_fees'])
+            pay = sm.take_home_pay(sum(monthly_data[month]['income']), sum(monthly_data[month]['employer_match']), monthly_data[month]['taxes_and_fees'], 'decimal')
             savings = sum(monthly_data[month]['savings']) if 'savings' in monthly_data[month] else 0 
             spending = pay - savings
-            srate = sm.savings_rate(pay, spending)
+            srate = sm.savings_rate(pay, spending, 'decimal')
             date = datetime.datetime.strptime(month, '%Y-%m')
             monthly_savings_rates.append((date, srate))
 
@@ -703,7 +703,7 @@ class SavingsRate:
         Returns:
             float
         """
-        return sm.average([rate[1] for rate in monthly_rates])
+        return sm.average([rate[1] for rate in monthly_rates], 'decimal')
 
 
 class Plot:
