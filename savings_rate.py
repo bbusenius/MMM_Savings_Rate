@@ -9,7 +9,7 @@ import psycopg2
 import sys
 import getpass
 from collections import OrderedDict
-from bokeh.plotting import figure, output_file, show, VBox
+from bokeh.plotting import figure, output_file, show
 from bokeh.embed import components
 from decimal import *
 import simple_math as sm
