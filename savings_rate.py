@@ -25,7 +25,6 @@ import datetime
 import mintapi
 import keyring
 import certifi
-import psycopg2
 import sys
 import getpass
 from collections import OrderedDict
@@ -65,6 +64,12 @@ class SRConfig:
         with csv files.
     """
     def __init__(self, mode='ini', user_conf=None, user=None, enemies=None):
+
+        # Don't require psycopg2 for desktop users
+        if mode == 'postgres':
+            import psycopg2
+
+        # Standard setup
         self.mode = mode
         self.user_ini = user_conf
         if self.mode == 'ini':
