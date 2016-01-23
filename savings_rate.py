@@ -819,8 +819,7 @@ class Plot:
                 if len(colors) == 0:
                     colors = list(self.colors)
 
-        p.legend.orientation = "top_left"
-
+        p.legend.location = "top_left"
 
         # Show the results
         if embed == False:
