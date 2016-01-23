@@ -1,3 +1,23 @@
+# MMM Savings Rate is an application that can parse spreadsheets and  
+# use the data to calculate and plot a user's savings rate over time. 
+# The application was inspired by Mr. Money Mustache and it uses his
+# methodology to make the calculations.
+
+# Copyright (C) 2016 Brad Busenius
+
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see 
+# <https://www.gnu.org/licenses/gpl-3.0.html/>.
+
 from savings_rate import SRConfig, SavingsRate, Plot
 
 # Instantiate a savings rate config object
