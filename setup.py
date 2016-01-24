@@ -9,12 +9,21 @@ setup(
     author='Brad Busenius',
     packages = find_packages(),
     py_modules=[
-        'savings_rate', 
+        'savings_rate',
+        'sr_launcher', 
     ], 
     url='https://github.com/bbusenius/MMM_Savings_Rate.git',
-    license='GNU GPLv3',
+    license='GNU GPLv3, see LICENCE.txt',
+    include_package_data=True,
     install_requires=[
         'bokeh',
+        'certifi',
+        'keyring',
+        'mintapi',
+        'python-dateutil',
+    ],
+    dependency_links=[
+        "git+https://github.com/bbusenius/Diablo-Python.git#egg=diablo_python"
     ],
     #test_suite='tests',
     zip_safe=False
