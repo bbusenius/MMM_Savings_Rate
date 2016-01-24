@@ -9,10 +9,6 @@ setup(
     author='Brad Busenius',
     author_email='bbusenius@gmail.com',
     packages = find_packages(),
-    scripts=[
-        'savings_rate',
-        'sr_launcher', 
-    ],
     py_modules=[
         'savings_rate',
     ],
