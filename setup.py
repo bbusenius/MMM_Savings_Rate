@@ -23,7 +23,7 @@ setup(
         'python-dateutil',
     ],
     dependency_links=[
-        "git+https://github.com/bbusenius/Diablo-Python.git#egg=diablo_python"
+        "git+https://github.com/bbusenius/Diablo-Python.git#egg=diablo_python",
     ],
     #test_suite='tests',
     zip_safe=False
