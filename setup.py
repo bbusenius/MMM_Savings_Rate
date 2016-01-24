@@ -9,12 +9,17 @@ setup(
     author='Brad Busenius',
     author_email='bbusenius@gmail.com',
     packages = find_packages(),
+    scripts=[
+        'sr_launcher.py', 
+    ],
     py_modules=[
         'savings_rate',
     ],
-    scripts=[
-        'sr_launcher', 
-    ],
+    entry_points = {
+        'console_scripts': [
+            'runsr = savings_rate:run',                  
+        ],              
+    },
     url='https://github.com/bbusenius/MMM_Savings_Rate.git',
     license='GNU GPLv3, see LICENSE.txt',
     include_package_data=True,
