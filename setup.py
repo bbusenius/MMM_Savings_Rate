@@ -19,7 +19,7 @@ setup(
     install_requires=[
         'bokeh',
         'certifi',
-        'diablo_python',
+        'diablo-python',
         'keyring',
         'mintapi',
         'python-dateutil',
