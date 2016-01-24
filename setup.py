@@ -13,6 +13,12 @@ setup(
         'savings_rate',
         'sr_launcher', 
     ],
+    py_modules=[
+        'savings_rate',
+    ],
+    scripts=[
+        'sr_launcher', 
+    ],
     url='https://github.com/bbusenius/MMM_Savings_Rate.git',
     license='GNU GPLv3, see LICENSE.txt',
     include_package_data=True,
