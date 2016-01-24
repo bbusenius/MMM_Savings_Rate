@@ -35,6 +35,3 @@ def run():
     user_plot = Plot(savings_rate)
     user_plot.plot_savings_rates(monthly_rates)
 
-
-run()
-
