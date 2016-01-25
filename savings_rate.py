@@ -49,7 +49,10 @@ class SRConfig:
         mode: a string representing a general source
         for data. Takes "ini" or "postgres".
 
-        user_conf: a string path to a user .ini file.
+        user_conf_dir: path to a directory of user .ini
+        configuration files.
+
+        user_conf: a string name of a  user .ini file.
 
         user: optional, an integer representing the 
         unique id of a user. This is only needed when 
@@ -63,10 +66,12 @@ class SRConfig:
         connected to a database. Not necessary when running 
         with csv files.
     """
-    def __init__(self, mode='ini', user_conf=None, user=None, enemies=None):
+    def __init__(self, mode='ini', user_conf_dir=None, user_conf=None, \
+        user=None, enemies=None):
 
         self.mode = mode
-        self.user_ini = user_conf
+        self.user_conf_dir = user_conf_dir
+        self.user_ini = user_conf_dir + user_conf
         if self.mode == 'ini':
             self.load_account_config()
         elif self.mode == 'postgres':
@@ -112,7 +117,7 @@ class SRConfig:
         # Get the user configurations
         self.user_config = configparser.RawConfigParser()
         config = self.user_config.read(self.user_ini)
-
+      
         assert config != [], 'No config.ini file was found. Please create a config file.'
 
         # Source of savings data (mint.com or .csv)
@@ -187,7 +192,7 @@ class SRConfig:
         """
         # Load the ini
         self.account_config = configparser.RawConfigParser()
-        account_config = self.account_config.read('config/account-config.ini')
+        account_config = self.account_config.read(self.user_conf_dir + 'account-config.ini')
 
         # Crosswalk the data
         self.user = self.account_config.get('Users', 'self').split(',')
@@ -446,7 +451,6 @@ class SavingsRate:
             return self.load_savings_from_postgres()
         else:
             print('Problem with savings information!')
-
 
 
     def load_savings_from_csv(self):
@@ -799,14 +803,16 @@ class Plot:
         # Plot the savings rate of enemies if war_mode is on
         if self.user.config.war_mode == True:
             for war in self.user.config.user_enemies:
-                #Enemy mode should always be the same as user mode
+                # Enemy mode and configuration directory should always
+                # be the same as user mode and configuration directory
                 enemy_mode = self.user.config.mode
+                enemy_conf_dir = self.user.config.user_conf_dir
 
                 # Website mode
                 if enemy_mode == 'postgres':
                     enemy_path = self.user.config.user_ini
 
-                enemy_config = SRConfig(enemy_mode, war[2], war[0], [])
+                enemy_config = SRConfig(enemy_mode, enemy_conf_dir, war[2], war[0], [])
                 enemy_savings_rate = SavingsRate(enemy_config)
                 enemy_rates = enemy_savings_rate.get_monthly_savings_rates()
                 enemy_x = []

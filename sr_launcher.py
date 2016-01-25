@@ -18,14 +18,27 @@
 # along with this program.  If not, see 
 # <https://www.gnu.org/licenses/gpl-3.0.html/>.
 
+import argparse
 from savings_rate import SRConfig, SavingsRate, Plot
 
 def run():
     """
     Run the application in, "ini" mode.
+
+    Args:
+        config_path: string, path to a directory of config 
+        .ini files. Should include a trailing "/".
     """
+    # Capture commandline arguments. prog='' argument must
+    # match the command name in setup.py entry_points
+    parser = argparse.ArgumentParser(prog='savingsrates')
+    parser.add_argument('-p', nargs='?', help='A path to a directory of config files.')
+    args = parser.parse_args()
+    inputs = {'p': args.p}
+    config_path = inputs['p']
+
     # Instantiate a savings rate config object
-    config = SRConfig('ini', 'config/config.ini')
+    config = SRConfig('ini', config_path, 'config.ini')
 
     # Instantiate a savings rate object for a user
     savings_rate = SavingsRate(config)

@@ -10,14 +10,14 @@ setup(
     author_email='bbusenius@gmail.com',
     packages = find_packages(),
     scripts=[
-        'sr_launcher.py', 
+        'sr_launcher.py',
     ],
     py_modules=[
         'savings_rate',
     ],
     entry_points = {
         'console_scripts': [
-            'runsr = savings_rate:run',                  
+            'savingsrates = sr_launcher:run',                  
         ],              
     },
     url='https://github.com/bbusenius/MMM_Savings_Rate.git',
