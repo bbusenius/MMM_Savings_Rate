@@ -84,13 +84,13 @@ The config.ini file is the second configuration file. This file is required and 
 
 The majority of what's here is listed under [Sources]. Settings include
 
-- pay - a full path to your income .csv file.
-- savings - a full path to your savings .csv file (can be the same file used for pay).
-- gross_income - the name of a column header in your spreadsheet that represents gross pay.
-- employer_match - the name of a column header in your spreadsheet that represents your employer match.
-- taxes_and_fees - the names of column headers in your spreadsheet that contain taxes and fees.
-- savings_accounts - the names of column headers in your spreadsheet that contain savings data from an account or accounts.
-- war - allows you to show or hide, "enemy" plots on your graph. Set this to, "off" if you only want to see your own data.
+- **pay** - a full path to your income .csv file.
+- **savings** - a full path to your savings .csv file (can be the same file used for pay).
+- **gross_income** - the name of a column header in your spreadsheet that represents gross pay.
+- **employer_match** - the name of a column header in your spreadsheet that represents your employer match.
+- **taxes_and_fees** - the names of column headers in your spreadsheet that contain taxes and fees.
+- **savings_accounts** - the names of column headers in your spreadsheet that contain savings data from an account or accounts.
+- **war** - allows you to show or hide, "enemy" plots on your graph. Set this to, "off" if you only want to see your own data.
 
 Settings under [Graph] allow you to change the size of the plot that's generated. 
 *Note: Mint integration is not yet operational*.
