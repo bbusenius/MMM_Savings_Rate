@@ -4,9 +4,11 @@ This application is a command-line utility that allows users to calculate and tr
 
 Additionally, users may supply secondary, "enemy" spreadsheets. This feature is provided in order to make the experience fun, game-like, and competitive for those who prefer such an experience. If an enemy spreadsheet is provided, the enemy savings rates are plotted alongside those of the user. This feature might be used by spouses who wish to compete with each other, for example.
 
+*MMM_Savings_Rate was inspired by Mr. Money Mustache. Visit the Mr. Money Mustache website and [read this article to learn more](http://www.mrmoneymustache.com/2012/01/13/the-shockingly-simple-math-behind-early-retirement).*
+
+## Web version
 Though MMM_Savings_Rate is meant to be run from the command-line, a full, graphical, web-based version of the project exists at: https://savingsratewars.com/. Use the web-based version of the software if you don't want to deal with installation and configuration.
 
-*MMM_Savings_Rate was inspired by Mr. Money Mustache. Visit the Mr. Money Mustache website and [read this article to learn more](http://www.mrmoneymustache.com/2012/01/13/the-shockingly-simple-math-behind-early-retirement).*
 
 ## Installation 
 This package should be installed using pip.
@@ -103,4 +105,4 @@ savingsrates -p /home/brad/Documents/Code/Projects/MMM_Savings_Rate/config/
 The -p flag should specify the full path to your directory of config files. When you run the command a plot of your monthly savings rates should open in a browser window.
 
 ## Requirements
-This utility runs on python 3.4. All additional dependencies should be automatically included during installation. For a full list look at [setup.py](https://github.com/bbusenius/MMM_Savings_Rate/blob/master/setup.py) or [requirements.txt](https://github.com/bbusenius/MMM_Savings_Rate/blob/master/requirements.txt).
+This utility runs on python 3.4. All additional dependencies should be automatically downloaded and included during installation. If you'd like to see all of what will be installed look at [setup.py](https://github.com/bbusenius/MMM_Savings_Rate/blob/master/setup.py) or [requirements.txt](https://github.com/bbusenius/MMM_Savings_Rate/blob/master/requirements.txt).
