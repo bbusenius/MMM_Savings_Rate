@@ -40,12 +40,12 @@ MMM_Savings_Rate was designed to be flexible in order to work with your preexist
 
 This data can exist in a single spreadsheet with a variety of financial data or separate spreadsheets for income and savings. How you set it up is up to you, however, certain data is required. The application will allow you to map your column labels to fields, so don't have to name them the same as outlined here. You also might want to split some of these fields over multiple columns in your spreadsheet. Jump to the configuration section to learn how to do this. In any event, however you decide to enter the data in your spreadsheet, all of the following fields must be represented in some fashion. 
 
-- Date for pay - the date of your paycheck or date associated with the income being entered. The application can parse most date formats. 
-- Gross Pay - the amount of money you made in its entirety before taxes were withdrawn.
-- Employer Match - money contributed to a retirement plan by your employer.
-- Taxes and Fees - any taxes and fees taken out of your paycheck before it was delivered, e.g. OASDI, Medicare, etc.
-- Savings Accounts - a dollar amount (mapped to 1 or multiple accounts)
-- Date for savings - the date you saved money into each account.
+- **Date for pay** - the date of your paycheck or date associated with the income being entered. The application can parse most date formats. 
+- **Gross Pay** - the amount of money you made in its entirety before taxes were withdrawn.
+- **Employer Match** - money contributed to a retirement plan by your employer.
+- **Taxes and Fees** - any taxes and fees taken out of your paycheck before it was delivered, e.g. OASDI, Medicare, etc.
+- **Savings Accounts** - a dollar amount (mapped to 1 or multiple accounts)
+- **Date for savings** - the date you saved money into each account.
 
 *Note about "Savings Accounts": you might have multiple savings accounts, e.g. Bank Account, Vanguard Brokerage, Roth. Each one of these would contain a dollar amount representing the quantity of money saved for the month. Mapping will be handled in the configuration stage.*
 
