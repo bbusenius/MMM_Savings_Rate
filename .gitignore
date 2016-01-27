@@ -4,6 +4,10 @@
 *.orig
 *.log
 *.html
+/dist/
+/*.egg-info
+/.eggs
+/build
 config/config.ini
 config/savings_rate_wars.ini
 config/config-uzia.ini
