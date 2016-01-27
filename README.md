@@ -10,18 +10,25 @@ Additionally, users may supply secondary, "enemy" spreadsheets. This feature is 
 Though MMM_Savings_Rate is meant to be run from the command-line, a full, graphical, web-based version of the project exists at: https://savingsratewars.com/. Use the web-based version of the software if you don't want to deal with installation and configuration.
 
 
-## Installation 
-This package should be installed using pip.
+## Installation
+This package should generally be installed using pip.
+
+### For users 
 
 ```
-pip install mmm_savings_rate
+pip install MMM-Savings-Rate
 ```
-or
+or 
 
 ```
 pip install -e git+https://github.com/bbusenius/MMM_Savings_Rate.git#egg=mmm_savings_rate
 ```
-Pass the -e flag to retain the editable source if you're installing directly from github.
+### For developers
+
+```
+git clone https://github.com/bbusenius/MMM_Savings_Rate.git
+python3 setup.py develop 
+```
 
 ## Using the application
 
