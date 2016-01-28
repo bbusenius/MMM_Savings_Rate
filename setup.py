@@ -31,7 +31,7 @@ setup(
         'mintapi',
         'python-dateutil',
     ],
-    #test_suite='tests',
+    test_suite='tests',
     zip_safe=False
 )
 

@@ -369,7 +369,8 @@ class SavingsRate:
     def clean_num(self, number):
         """
         Looks at numeric values to determine if they are numeric. 
-        Converts empty strings and null values to 0.0.
+        Converts empty strings and null values to 0.0. Acceptable 
+        arguments are None, empty string, int, float, or decimal.
 
         Args:
             number: Float, int, decimal, empty string, or null value.
@@ -377,10 +378,16 @@ class SavingsRate:
         Returns:
             float, int, or decimal
         """
-        if number == '' or number == None:
+        if number == None or number.strip() == '':
             retval = 0.0
         elif is_numeric(number):
+            try:
+                number / 2
+            except:
+                raise TypeError('A numeric value was expected. The argument passed was non-numeric.')
             retval = number
+        else:
+            raise TypeError('A numeric value was expected. The argument passed was non-numeric.')
         return retval
 
 
