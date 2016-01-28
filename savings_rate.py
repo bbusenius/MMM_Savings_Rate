@@ -378,7 +378,11 @@ class SavingsRate:
         Returns:
             float, int, or decimal
         """
-        if number == None or number.strip() == '':
+        try:
+            number = number.strip()
+        except:
+            pass 
+        if number == None or number == '':
             retval = 0.0
         elif is_numeric(number):
             try:
