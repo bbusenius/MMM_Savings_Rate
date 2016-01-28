@@ -32,7 +32,7 @@ from bokeh.plotting import figure, output_file, show
 from bokeh.embed import components
 from decimal import *
 import simple_math as sm
-from file_parsing import is_numeric, are_numeric
+from file_parsing import is_number_of_some_sort, are_numeric
 
 # For debugging
 from pprint import pprint 
@@ -384,11 +384,7 @@ class SavingsRate:
             pass 
         if number == None or number == '':
             retval = 0.0
-        elif is_numeric(number):
-            try:
-                number / 2
-            except:
-                raise TypeError('A numeric value was expected. The argument passed was non-numeric.')
+        elif is_number_of_some_sort(number):
             retval = number
         else:
             raise TypeError('A numeric value was expected. The argument passed was non-numeric.')
