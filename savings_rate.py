@@ -65,15 +65,25 @@ class SRConfig:
         is only needed when running as part of an application 
         connected to a database. Not necessary when running 
         with csv files.
+
+        test: boolean, defaults to False. Set
+        to True for testing the account-config.ini
+        under a different name.
+
+        test_file: string, name of an .ini to test.
+        Defaults to None and should only be set if 
+        test=True.
     """
     def __init__(self, mode='ini', user_conf_dir=None, user_conf=None, \
-        user=None, enemies=None):
+        user=None, enemies=None, test=False, test_file=None):
 
         self.mode = mode
         self.user_conf_dir = user_conf_dir
         self.user_ini = user_conf_dir + user_conf
         if self.mode == 'ini':
-            self.load_account_config()
+            self.is_test = test
+            self.test_account_ini = test_file
+            self.load_account_config() 
         elif self.mode == 'postgres':
             self.user = [user]
             self.user_enemies = [[]]
@@ -87,15 +97,9 @@ class SRConfig:
     def load_account_config(self):
         """
         Wrapper function, loads configurations from 
-        ini files or a database.
+        ini files.
         """
-        if self.mode == 'ini':
-            config = self.load_account_config_from_ini()
-
-        assert config != [], 'You are missing the main configuration for the application. \
-            Make sure you have an account-config.ini.'
-
-        return config
+        return self.load_account_config_from_ini()
 
 
     def load_user_config(self):
@@ -128,10 +132,6 @@ class SRConfig:
 
         # Set war mode
         self.war_mode = self.user_config.getboolean('Sources', 'war')
-
-        # Ensure that proper configurations are set
-        assert self.pay_source != '', error_msg
-        assert self.savings_source != '', error_msg
 
         # Savings and income sources
         error_msg = 'You are missing a required variable in the "Sources" section of config.ini'
@@ -189,18 +189,39 @@ class SRConfig:
     def load_account_config_from_ini(self):
         """
         Get the configurations from an .ini file.
+        Throw an exception if the file is lacking 
+        required data.
         """
         # Load the ini
         self.account_config = configparser.RawConfigParser()
-        account_config = self.account_config.read(self.user_conf_dir + 'account-config.ini')
+        if not self.is_test:
+            account_config = self.account_config.read(self.user_conf_dir + 'account-config.ini')
+        else:
+            try:
+                account_config = self.account_config.read(self.user_conf_dir + self.test_account_ini)
+            except:
+                raise RuntimeError('If test=True, a test .ini must be provided. You must provide a value for test_file.')
 
-        # Crosswalk the data
+        # Raise an exception if the account_config comes back empty
+        if account_config == []:
+            raise FileNotFoundError('The account_config is an empty []. A file named, "account-config.ini" was not found. This file must exist.')
+
+        # Crosswalk data for the main player if it 
+        # exists, otherwise throw an exception.
         self.user = self.account_config.get('Users', 'self').split(',')
-        self.user_enemies = [enemy.split(',') for enemy in self.account_config.get('Users', 'enemies').split('|')]
 
-        # Set a log file
+        # If enemies isn't in the account-config.ini
+        # set it to None.
+        try:
+            self.user_enemies = [enemy.split(',') for enemy in self.account_config.get('Users', 'enemies').split('|')]
+        except(KeyError, configparser.NoOptionError):
+            self.user_enemies = None
+
+        # Set a log file (optional)
         self.log = self.account_config.get('Dev', 'logfile') if self.account_config.has_section('Dev') else None
         
+        # Validate the account-config.ini
+        self.validate_account_config()
 
 
     def load_account_config_from_postgres(self):
@@ -209,6 +230,24 @@ class SRConfig:
         """
         pass
 
+
+    def validate_account_config(self):
+        """
+        Validate the account-config.ini.
+        """
+        assert len(self.user) == 3, 'The "self" option in the [Users] section should have an id, name, and path to user config separated by commas.'
+
+        user_ids = set([])
+        main_user_id = self.user[0]
+        user_ids.add(main_user_id)
+
+        if self.user_enemies:
+            i = 1 # Self, already added
+            for enemy in self.user_enemies:
+                user_ids.add(enemy[0])
+                assert len(enemy) == 3, 'The "enemies" option in account-config.ini is not set correctly.' 
+                i += 1
+            assert len(user_ids) ==  i, 'Every user ID must be unique.'
 
 
 class SavingsRate:
