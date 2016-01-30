@@ -39,6 +39,26 @@ from pprint import pprint
 import logging
 import cProfile
 
+REQUIRED_INI_ACCOUNT_OPTIONS = {'Users': ['self']}
+
+REQUIRED_INI_USER_OPTIONS = {
+    'Sources' : [
+        'pay', 
+        'pay_date', 
+        'gross_income', 
+        'employer_match', 
+        'taxes_and_fees', 
+        'savings', 
+        'savings_accounts', 
+        'savings_date', 
+        'war'
+    ],
+    'Graph' : [
+        'width', 
+        'height'
+    ]
+}
+
 
 class SRConfig:
     """
@@ -121,12 +141,14 @@ class SRConfig:
         # Get the user configurations
         self.user_config = configparser.RawConfigParser()
         config = self.user_config.read(self.user_ini)
-     
+
         # Raise an exception if a user config 
         # cannot be found 
         if config == []:
             raise FileNotFoundError('The user config is an empty []. Create a user config file and make sure it\'s referenced in account-config.ini.')
 
+        # Validate the configparser config object
+        self.validate_user_ini()
 
         # Source of savings data (mint.com or .csv)
         self.savings_source = self.user_config.get('Sources', 'savings')
@@ -141,27 +163,36 @@ class SRConfig:
         self.pay_source = self.user_config.get('Sources', 'pay')
         self.savings_source = self.user_config.get('Sources', 'savings')
 
-        # ------------------------------------------
-        # === Spreadsheet validation ===
-        # ------------------------------------------
-
         # Required columns for spreadsheets
         self.required_income_columns = set([self.user_config.get('Sources', 'pay_date')])
         self.required_savings_columns = set([self.user_config.get('Sources', 'savings_date')])
 
-        # Spreadsheet columns that should have numeric data
-        self.numeric_columns = set([self.user_config.get('Sources', 'gross_income'), \
-            self.user_config.get('Sources', 'employer_match'), \
-            ', '.join(self.user_config.get('Sources', 'taxes_and_fees').split(',', )), \
-            ', '.join(self.user_config.get('Sources', 'savings_accounts').split(',', ))])
-
-        # Spreadsheet columns we care about, these are just column names
+        # Other spreadsheet columns we care about
         self.gross_income = self.user_config.get('Sources', 'gross_income')
         self.employer_match = self.user_config.get('Sources', 'employer_match')
         self.taxes_and_fees = self.user_config.get('Sources', 'taxes_and_fees')
         self.savings_accounts = self.user_config.get('Sources', 'savings_accounts')
 
-    
+
+    def validate_user_ini(self):
+        """
+        Minimum validation for the user 
+        config.ini when running in 'ini' mode.
+        """
+        # Required section and options
+        for section in REQUIRED_INI_USER_OPTIONS:
+            assert self.user_config.has_section(section), \
+                '[' + section + '] is a required section in the user config.ini.'
+            for option in REQUIRED_INI_USER_OPTIONS[section]:
+                assert self.user_config.has_option(section, option), \
+                    'The "' + option + '" option is required in the [' + section + '] section of config.ini.'
+
+        # Assumptions about the data
+        assert are_numeric([self.user_config.get('Graph', 'width'), \
+            self.user_config.get('Graph', 'height')]) == True, \
+                '[Graph] width and height must contain numeric values.'
+
+ 
     def load_user_config_for_postgres(self):
         """
         Get user configurations from the database.
@@ -206,6 +237,9 @@ class SRConfig:
         if account_config == []:
             raise FileNotFoundError('The account_config is an empty []. A file named, "account-config.ini" was not found. This file must exist.')
 
+        # Validate the ini file.
+        self.validate_account_ini()
+
         # Crosswalk data for the main player if it 
         # exists, otherwise throw an exception.
         self.user = self.account_config.get('Users', 'self').split(',')
@@ -220,8 +254,8 @@ class SRConfig:
         # Set a log file (optional)
         self.log = self.account_config.get('Dev', 'logfile') if self.account_config.has_section('Dev') else None
         
-        # Validate the account-config.ini
-        self.validate_account_config()
+        # Validate the data loaded from account-config.ini
+        self.validate_loaded_account_data()
 
 
     def load_account_config_from_postgres(self):
@@ -231,11 +265,26 @@ class SRConfig:
         pass
 
 
-    def validate_account_config(self):
+    def validate_account_ini(self):
         """
-        Validate the account-config.ini.
+        Minimum validation for account-config.ini.
         """
-        assert len(self.user) == 3, 'The "self" option in the [Users] section should have an id, name, and path to user config separated by commas.'
+        # Required sections
+        assert self.account_config.has_section('Users'), \
+            '[Users] is a required section in account-config.ini.'
+
+        # Required options 
+        assert self.account_config.has_option('Users', 'self'), \
+            'The "self" option is required in the [Users] section of account-config.ini.'
+
+
+    def validate_loaded_account_data(self):
+        """
+        Validate the data loaded from 
+        account-config.ini.
+        """
+        assert len(self.user) == 3, \
+            'The "self" option in the [Users] section should have an id, name, and path to user config separated by commas.'
 
         user_ids = set([])
         main_user_id = self.user[0]
@@ -294,8 +343,7 @@ class SavingsRate:
                    'required_savings_column' : 'You are missing a required column in ' +  self.savings_source + 
                         '. The following columns are required: ' + ', '.join(self.required_savings_columns) + '',
                    'required_income_column' : 'You are missing a required column in ' +  self.pay_source + 
-                        '. The following columns are required: ' + ', '.join(self.required_income_columns),
-                   'non_numeric_data' : 'Some of your spreadsheet data is not numeric. The following spreadsheet columns should be numeric: ' + ', '.join(self.numeric_columns)}
+                        '. The following columns are required: ' + ', '.join(self.required_income_columns)}
 
         return message[error_type]
 
@@ -699,8 +747,8 @@ class SavingsRate:
             income_taxes = [0 if income[payout][val] == '' else income[payout][val] for val in self.config.taxes_and_fees.split(',')]
 
             # Validate income spreadsheet data
-            assert are_numeric([income_gross, income_match]) == True, self.get_error_msg('non_numeric_data')
-            assert are_numeric(income_taxes) == True, self.get_error_msg('non_numeric_data')
+            assert are_numeric([income_gross, income_match]) == True
+            assert are_numeric(income_taxes) == True
 
             # If the data passes validation, convert it (strings to Decimal objects)
             gross = Decimal(income_gross) 
@@ -728,7 +776,7 @@ class SavingsRate:
                         bank = [savings[transfer][val] for val in self.config.savings_accounts.split(',') if savings[transfer][val] != '']
 
                         # Validate savings spreadsheet data
-                        assert are_numeric(bank) == True, self.get_error_msg('non_numeric_data')
+                        assert are_numeric(bank) == True
                 
                         # If the data passes validation, convert it (strings to Decimal objects)
                         money_in_the_bank = sum([Decimal(investment) for investment in bank])

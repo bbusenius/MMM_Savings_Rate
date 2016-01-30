@@ -1,6 +1,6 @@
 import unittest
 import configparser
-from savings_rate import SRConfig, SavingsRate, Plot
+from savings_rate import SRConfig, SavingsRate, Plot, REQUIRED_INI_ACCOUNT_OPTIONS, REQUIRED_INI_USER_OPTIONS
 from decimal import *
 import sys
 
@@ -71,6 +71,29 @@ class test_srconfig(unittest.TestCase):
         self.assertRaises(configparser.NoOptionError, config.account_config.get, 'Users', 'self')
 
 
+    def test_required_account_sections(self):
+        """
+        A missing required section in account-config.ini 
+        should throw an assertion error.
+        """
+        for section in REQUIRED_INI_ACCOUNT_OPTIONS:
+            config = SRConfig('ini', 'tests/test_config/', 'config-test.ini')
+            config.account_config.remove_section(section)
+            self.assertRaises(AssertionError, config.validate_account_ini) 
+
+
+    def test_required_account_options(self):
+        """
+        A missing required option in account-config.ini 
+        should throw an assertion error.
+        """
+        for section in REQUIRED_INI_ACCOUNT_OPTIONS:
+            for option in REQUIRED_INI_ACCOUNT_OPTIONS[section]: 
+                config = SRConfig('ini', 'tests/test_config/', 'config-test.ini')
+                config.account_config.remove_option(section, option)
+                self.assertRaises(AssertionError, config.validate_account_ini) 
+
+
     def test_load_account_config_with_good_ini(self):
         """
         Load a good account-config.ini.
@@ -109,17 +132,24 @@ class test_srconfig(unittest.TestCase):
         self.assertEqual(config.user_enemies, None)
 
 
-    def test_load_user_config(self):
+    def test_required_user_sections(self):
         """
-        Test load_user_config and load_user_config_from_ini.
-        Are the proper configurations loaded? Check the data in
-        tests/test_config/config-test.ini.
+        A missing required section in config.ini 
+        should throw an assertion error.
         """
-        config = SRConfig('ini', 'tests/test_config/', 'config-test.ini')
+        for section in REQUIRED_INI_USER_OPTIONS:
+            config = SRConfig('ini', 'tests/test_config/', 'config-test.ini')
+            config.user_config.remove_section(section)
+            self.assertRaises(AssertionError, config.validate_user_ini) 
 
-        self.assertEqual(config.savings_source, 'csv/savings-example.csv', \
-            'savings_source was incorrectly set in SRConfig.')
-        self.assertEqual(config.pay_source, 'csv/income-example.csv', \
-            'pay_source was incorrectly set in SRConfig.')
-        self.assertEqual(config.war_mode, True, \
-            'war_mode loaded incorrectly in SRConfig.')      
+
+    def test_required_user_options(self):
+        """
+        A missing required option in config.ini 
+        should throw an assertion error.
+        """
+        for section in REQUIRED_INI_USER_OPTIONS:
+            for option in REQUIRED_INI_USER_OPTIONS[section]: 
+                config = SRConfig('ini', 'tests/test_config/', 'config-test.ini')
+                config.user_config.remove_option(section, option)
+                self.assertRaises(AssertionError, config.validate_user_ini) 
