@@ -36,7 +36,6 @@ class test_savings_rate_methods(unittest.TestCase):
         self.assertEqual(val6, Decimal(4.4)), '4.4 should evaluate to Decimal(4.4). It evaluated to ' + str(val6)
 
 
-
 class test_srconfig(unittest.TestCase):
     """
     Test the SRConfig class.
@@ -118,6 +117,9 @@ class test_srconfig(unittest.TestCase):
         """
         config = SRConfig('ini', 'tests/test_config/', 'config-test.ini')
 
-        self.assertEqual(config.savings_source, 'csv/savings-example.csv', 'savings_source was incorrectly set in SRConfig.')
-        self.assertEqual(config.pay_source, 'csv/income-example.csv', 'pay_source was incorrectly set in SRConfig.')
-        self.assertEqual(config.war_mode, True, 'war_mode loaded incorrectly in SRConfig.')      
+        self.assertEqual(config.savings_source, 'csv/savings-example.csv', \
+            'savings_source was incorrectly set in SRConfig.')
+        self.assertEqual(config.pay_source, 'csv/income-example.csv', \
+            'pay_source was incorrectly set in SRConfig.')
+        self.assertEqual(config.war_mode, True, \
+            'war_mode loaded incorrectly in SRConfig.')      

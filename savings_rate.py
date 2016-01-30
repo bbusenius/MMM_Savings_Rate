@@ -121,8 +121,12 @@ class SRConfig:
         # Get the user configurations
         self.user_config = configparser.RawConfigParser()
         config = self.user_config.read(self.user_ini)
-      
-        assert config != [], 'No config.ini file was found. Please create a config file.'
+     
+        # Raise an exception if a user config 
+        # cannot be found 
+        if config == []:
+            raise FileNotFoundError('The user config is an empty []. Create a user config file and make sure it\'s referenced in account-config.ini.')
+
 
         # Source of savings data (mint.com or .csv)
         self.savings_source = self.user_config.get('Sources', 'savings')
@@ -134,20 +138,16 @@ class SRConfig:
         self.war_mode = self.user_config.getboolean('Sources', 'war')
 
         # Savings and income sources
-        error_msg = 'You are missing a required variable in the "Sources" section of config.ini'
-        try:
-            self.pay_source = self.user_config.get('Sources', 'pay')
-            self.savings_source = self.user_config.get('Sources', 'savings')
-        except:
-            print(error_msg)
+        self.pay_source = self.user_config.get('Sources', 'pay')
+        self.savings_source = self.user_config.get('Sources', 'savings')
 
         # ------------------------------------------
         # === Spreadsheet validation ===
         # ------------------------------------------
 
         # Required columns for spreadsheets
-        self.required_income_columns = set(['Date'])
-        self.required_savings_columns = set(['Date'])
+        self.required_income_columns = set([self.user_config.get('Sources', 'pay_date')])
+        self.required_savings_columns = set([self.user_config.get('Sources', 'savings_date')])
 
         # Spreadsheet columns that should have numeric data
         self.numeric_columns = set([self.user_config.get('Sources', 'gross_income'), \

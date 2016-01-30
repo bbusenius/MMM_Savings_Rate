@@ -80,19 +80,21 @@ self = 1,My name,config.ini
 enemies = 2,Joe,config-spouse.ini|3,Brother,config-brother.ini
 ```
 
-The [Users] section is required. The "self" field represents the main player (you). This field should contain a comma separated list with a unique numerical ID, followed by a name, and the name of a config file. **The name of the config file for the main player should always be config.ini - this file is required**.
-
+The [Users] section is required. The "self" field represents the main player (you). This field should contain a comma separated list with a unique numerical ID, followed by a name, and the name of a main user config file.
+ 
 The "enemies" field is optional. If it's being used, it should be setup the same as the self field, however, if more than one enemy exists, this can be a pipe separated list of comma separated values.
 
 #### config.ini
-The config.ini file is the second configuration file. This file is required and it must be called config.ini. It contains all of your personal settings and spreadsheet mappings. 
+The config.ini file is the second configuration file. This file is required. It contains all of your personal settings and spreadsheet mappings. 
 
 [Please look at this example](https://github.com/bbusenius/MMM_Savings_Rate/blob/master/config/config-example.ini).
 
-The majority of what's here is listed under [Sources]. Settings include
+The majority of what's here is listed under [Sources]. Settings include:
 
 - **pay** - a full path to your income .csv file.
+- **pay_date** - the name of a column header for the dates of income or pay transactions.
 - **savings** - a full path to your savings .csv file (can be the same file used for pay).
+- **savings_date** - the name of a column header for the dates of income or pay transactions.
 - **gross_income** - the name of a column header in your spreadsheet that represents gross pay.
 - **employer_match** - the name of a column header in your spreadsheet that represents your employer match.
 - **taxes_and_fees** - the names of column headers in your spreadsheet that contain taxes and fees.
