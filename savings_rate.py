@@ -163,15 +163,19 @@ class SRConfig:
         self.pay_source = self.user_config.get('Sources', 'pay')
         self.savings_source = self.user_config.get('Sources', 'savings')
 
-        # Required columns for spreadsheets
-        self.required_income_columns = set([self.user_config.get('Sources', 'pay_date')])
-        self.required_savings_columns = set([self.user_config.get('Sources', 'savings_date')])
-
         # Other spreadsheet columns we care about
         self.gross_income = self.user_config.get('Sources', 'gross_income')
         self.employer_match = self.user_config.get('Sources', 'employer_match')
         self.taxes_and_fees = self.user_config.get('Sources', 'taxes_and_fees')
         self.savings_accounts = self.user_config.get('Sources', 'savings_accounts')
+        self.pay_date = self.user_config.get('Sources', 'pay_date')
+        self.savings_date = self.user_config.get('Sources', 'savings_date')
+
+        # Required columns for spreadsheets
+        # Column names set in the config must exist in the .csv when we load it
+        # These values are used later to ensure mappings to the .csv are correct
+        self.required_income_columns = set([self.gross_income, self.employer_match, self.pay_date]).union(set(self.taxes_and_fees.split(',')))
+        self.required_savings_columns = set([self.savings_date]).union(set(self.savings_accounts.split(',')))
 
 
     def validate_user_ini(self):
@@ -325,47 +329,38 @@ class SavingsRate:
         self.get_savings() 
 
 
-    def get_error_msg(self, error_type):
-        """
-        Return an error message for a given condition.
-
-        Args:
-            error_type: string, the type of error to retrieve.
-
-        Returns:
-            String, error message
-        """
-
-        # Error messages
-        message = {'missing_variable' : 'You are missing a required variable in the "Sources" section of config.ini',
-                   'no_mint_username' : 'Please set your username in the "Mint" section of the config.ini',
-                   'bad_spreadsheet_type' : 'You passed an improper spreadsheet type to test_columns()',
-                   'required_savings_column' : 'You are missing a required column in ' +  self.savings_source + 
-                        '. The following columns are required: ' + ', '.join(self.required_savings_columns) + '',
-                   'required_income_column' : 'You are missing a required column in ' +  self.pay_source + 
-                        '. The following columns are required: ' + ', '.join(self.required_income_columns)}
-
-        return message[error_type]
-
-    
-    def test_columns(self, row, string):
+    def test_columns(self, row, spreadsheet):
         """
         Make sure the required columns are present for different 
-        types of spreadsheets.
+        types of spreadsheets, ensure that what was mapped in the
+        config.ini exists as a column header in the spreadsheet. 
 
         Args:
             row: a set representing column headers from a spreadsheet.
 
-            string: the type of spreadsheet to validate. Possible
-            values are "income" or "spending".
+            spreadsheet: string, the type of spreadsheet to validate. 
+            Possible values are "income" or "savings".
+
+        Returns:
+            None, throws an AssertionError if spreadsheet column names
+            don't match what was set in the configuration. Raises a 
+            ValueError if a bad argument is passed.
         """
-        if string == 'income':
-            val = self.config.required_income_columns.intersection(row)
-        elif string == 'savings':
-            val = self.config.required_savings_columns.intersection(row)
+        
+        required = {'income': self.config.required_income_columns,
+                    'savings': self.config.required_savings_columns}
+
+        if spreadsheet in required:
+            val = row.issuperset(required[spreadsheet])
         else:
-            sys.exit(self.get_error_msg('bad_spreadsheet_type'))
-        return val
+            msg = 'You passed an improper spreadsheet type to test_columns(). ' + \
+                  'Possible values are "income" and "savings"'
+            raise ValueError(msg)
+
+        assert val == True, \
+            'The ' + spreadsheet + ' spreadsheet is missing a column header. ' + \
+            'following columns were configured: ' + str(required[spreadsheet]) + ' ' + \
+            'but these column headings were found in the spreadsheet: ' + str(row)
 
 
     def connect_to_postgres_db(self):
@@ -397,27 +392,12 @@ class SavingsRate:
 
         Returns:
         """
-        if self.config.mode == 'ini' and self.is_csv(self.config.pay_source): 
+        if self.config.mode == 'ini': 
             return self.load_pay_from_csv()
         elif self.config.mode == 'postgres':
             return self.load_pay_from_postgres()
         else:
-            print('Problem with income information!')
-
-
-    def is_csv(self, name):
-        """
-        Checks to see if the reference to a filename
-        is a reference to a .csv file. Does NOT test
-        if the file actually is a .csv file.
-
-        Args:
-            name, string
-
-        Returns:
-            boolean
-        """
-        return name[-4:] == '.csv'
+            raise RuntimeError('Problem loading income information!')
 
 
     def load_pay_from_postgres(self):
@@ -521,8 +501,7 @@ class SavingsRate:
             reader = csv.DictReader(csvfile)
             for row in reader:
                 # Make sure required columns are in the spreadsheet
-                assert self.test_columns(set(row.keys()), 'income') != set([]), \
-                    self.get_error_msg('required_income_column')
+                self.test_columns(set(row.keys()), 'income')
 
                 dt_obj = parser.parse(row['Date'])
                 date = dt_obj.strftime(self.config.date_format)
@@ -539,12 +518,12 @@ class SavingsRate:
         """
         if self.config.savings_source == 'mint':
             return self.load_savings_from_mint()
-        elif self.config.mode == 'ini' and  self.is_csv(self.config.savings_source): 
+        elif self.config.mode == 'ini': 
             return self.load_savings_from_csv()
         elif self.config.mode == 'postgres':
             return self.load_savings_from_postgres()
         else:
-            print('Problem with savings information!')
+            raise RuntimeError('Problem loading savings information!')
 
 
     def load_savings_from_csv(self):
@@ -562,8 +541,8 @@ class SavingsRate:
             reader = csv.DictReader(csvfile)
             for row in reader:
                 # Make sure required columns are in the spreadsheet
-                assert self.test_columns(set(row.keys()), 'savings') != set([]), \
-                    self.get_error_msg('required_savings_column')
+                self.test_columns(set(row.keys()), 'savings')
+                
                 dt_obj = parser.parse(row['Date'])
                 date = dt_obj.strftime(self.config.date_format)
 
@@ -584,11 +563,7 @@ class SavingsRate:
         """
 
         # Get username for mint.com from the config.ini
-        try:
-            username = self.config.get('Mint', 'username')
-        except:
-            print(self.get_error_msg('no_mint_username'))
-        assert username != '', self.get_error_msg('no_mint_username')
+        username = self.config.get('Mint', 'username')
 
         # Get the password if available
         password = keyring.get_password(self.config.get('Sources', 'savings'), self.config.get('Mint', 'username'))
