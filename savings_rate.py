@@ -502,8 +502,7 @@ class SavingsRate:
             for row in reader:
                 # Make sure required columns are in the spreadsheet
                 self.test_columns(set(row.keys()), 'income')
-
-                dt_obj = parser.parse(row['Date'])
+                dt_obj = parser.parse(row[self.config.pay_date])
                 date = dt_obj.strftime(self.config.date_format)
                 retval[date] = row
             self.income = retval
@@ -543,7 +542,7 @@ class SavingsRate:
                 # Make sure required columns are in the spreadsheet
                 self.test_columns(set(row.keys()), 'savings')
                 
-                dt_obj = parser.parse(row['Date'])
+                dt_obj = parser.parse(row[self.config.savings_date])
                 date = dt_obj.strftime(self.config.date_format)
 
                 retval[date] = row 
