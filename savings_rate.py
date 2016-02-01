@@ -685,16 +685,16 @@ class SavingsRate:
         Returns:
             OrderedDict
 
-        Example data structure:
- 
-             sr  = {'2015-01-29' : {'income' : [3500.0],
-                                    'employer_match' : [120.0],
-                                    'taxes_and_fees' : [450.0],
-                                    'savings' : [1000.0]},
-                    '2015-02-27' : {'income' : [3500.0],
-                                    'employer_match' : [120.0],
-                                    'taxes_and_fees' : [450.0],
-                                    'savings' : [800.0]}}
+        Example return data:
+
+            OrderedDict({'2015-01' : {'income' : [Decimal(3500.0)],
+                                      'employer_match' : [Decimal(120.0)],
+                                      'taxes_and_fees' : [Decimal(450.0)],
+                                      'savings' : [Decimal(1000.0)]},
+                         '2015-02' : {'income' : [Decimal(3500.0)],
+                                      'employer_match' : [Decimal(120.0)],
+                                      'taxes_and_fees' : [Decimal(450.0)],
+                                      'savings' : [Decimal(800.0)]}})
         """
         income = self.income.copy()
         savings = self.savings.copy()
@@ -761,23 +761,31 @@ class SavingsRate:
         return sr
 
 
-    def get_monthly_savings_rates(self):
+    def get_monthly_savings_rates(self, test_data=False):
         """
-        Calculates the monthly savings rates over a period of time.
+        Calculates the monthly savings rates over 
+        a period of time.
 
         Args:
-            None
+            test_data: OrderedDict or boolean, for 
+            passing in test data. Defaults to false. 
 
         Returns:
-            A list of tuples where the first item in each tupal is a python
-            date object and the second item in each tuple is the savings 
-            rate for that month. 
+            A list of tuples where the first item 
+            in each tupal is a python date object 
+            and the second item in each tuple is 
+            the savings rate for that month. 
         """
-        
-        monthly_data = self.get_monthly_data()
+        if not test_data:
+            monthly_data = self.get_monthly_data()
+        else:
+            monthly_data = test_data
+
         monthly_savings_rates = []
         for month in monthly_data:
-            pay = sm.take_home_pay(sum(monthly_data[month]['income']), sum(monthly_data[month]['employer_match']), monthly_data[month]['taxes_and_fees'], 'decimal')
+            pay = sm.take_home_pay(sum(monthly_data[month]['income']), \
+                sum(monthly_data[month]['employer_match']), \
+                monthly_data[month]['taxes_and_fees'], 'decimal')
             savings = sum(monthly_data[month]['savings']) if 'savings' in monthly_data[month] else 0 
             spending = pay - savings
             srate = sm.savings_rate(pay, spending, 'decimal')
@@ -789,12 +797,14 @@ class SavingsRate:
 
     def average_monthly_savings_rates(self, monthly_rates):
         """
-        Calculates the average monthly savings rate for a period of months.
+        Calculates the average monthly savings rate 
+        for a period of months.
 
         Args:
-            monthly_rates: a list of tuples where the first item in each tupal is a python
-            date object and the second item in each tuple is the savings 
-            rate for that month.
+            monthly_rates: a list of tuples where the 
+            first item in each tupal is a python date 
+            object and the second item in each tuple 
+            is the savings rate for that month.
 
         Returns:
             float
