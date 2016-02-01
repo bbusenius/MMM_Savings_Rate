@@ -4,7 +4,7 @@ PyYAML==3.11
 backports-abc==0.4
 bokeh==0.11.0
 certifi==2015.11.20.1
--e git+https://github.com/bbusenius/Diablo-Python.git@3263cb3ed43b7dd393d8bc22abb92bc7fd2a176f#egg=diablo_python-origin/HEAD
+diablo-python==0.0.2
 keyring==7.3
 mintapi==1.16
 numpy==1.10.4
