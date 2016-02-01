@@ -4,7 +4,7 @@ This application is a command-line utility that allows users to calculate and tr
 
 Additionally, users may supply secondary, "enemy" spreadsheets. This feature is provided in order to make the experience fun, game-like, and competitive for those who prefer such an experience. If an enemy spreadsheet is provided, the enemy savings rates are plotted alongside those of the user. This feature might be used by spouses who wish to compete with each other, for example.
 
-![Example savings rates plotted](docs/screenshot.png)
+![Example savings rates plotted](https://github.com/bbusenius/MMM_Savings_Rate/raw/master/docs/screenshot.png)
 
 *MMM_Savings_Rate was inspired by Mr. Money Mustache. Visit the Mr. Money Mustache website and [read this article to learn more](http://www.mrmoneymustache.com/2012/01/13/the-shockingly-simple-math-behind-early-retirement).*
 
