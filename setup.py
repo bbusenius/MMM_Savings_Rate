@@ -1,6 +1,12 @@
 # -*- coding: utf-8 -*-
 from setuptools import setup, find_packages
 
+try:
+    import pypandoc
+    LONG_DESCRIPTION = pypandoc.convert('README.md', 'rst')
+except(IOError, ImportError):
+    LONG_DESCRIPTION = open('README.md').read()
+
 setup(
     name='MMM_Savings_Rate',
     description='An application that can parse spreadsheets in order to ' \
@@ -32,6 +38,7 @@ setup(
         'python-dateutil',
     ],
     test_suite='tests',
+    long_description=LONG_DESCRIPTION,
     zip_safe=False
 )
 
