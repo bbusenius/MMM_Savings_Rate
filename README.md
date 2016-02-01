@@ -18,18 +18,17 @@ This package should generally be installed using pip.
 ```
 pip install MMM-Savings-Rate
 ```
-or 
-
-```
-pip install -e git+https://github.com/bbusenius/MMM_Savings_Rate.git#egg=mmm_savings_rate
-```
 ### For developers
 
 ```
 git clone https://github.com/bbusenius/MMM_Savings_Rate.git
 python3 setup.py develop 
 ```
+or 
 
+```
+pip install -e git+https://github.com/bbusenius/MMM_Savings_Rate.git#egg=mmm_savings_rate
+```
 ## Using the application
 
 In order to get things going, you'll only need to take the following steps:
@@ -45,7 +44,7 @@ Read on to see how to do each of these things.
 ### Spreadsheet files
 MMM_Savings_Rate was designed to be flexible in order to work with your preexisting spreadsheets. At the moment, spreadsheets must be saved as .csv files, however, column headers can be unique, so it doesn't matter what labels you use to categorize things. To get started you'll need financial data for both **income** and **savings**.
 
-This data can exist in a single spreadsheet with a variety of financial data or separate spreadsheets for income and savings. How you set it up is up to you, however, certain data is required. The application will allow you to map your column labels to fields, so don't have to name them the same as outlined here. You also might want to split some of these fields over multiple columns in your spreadsheet. Jump to the configuration section to learn how to do this. In any event, however you decide to enter the data in your spreadsheet, all of the following fields must be represented in some fashion. 
+This data can exist in a single spreadsheet with a variety of financial data or separate spreadsheets for income and savings. How you set it up is up to you, however, certain data is required. The application will allow you to map your column labels to fields, so you don't have to name them the same as outlined here. You also might want to split some of these fields over multiple columns in your spreadsheet. Jump to the configuration section to learn how to do this. In any event, however you decide to enter the data in your spreadsheet, all of the following fields must be represented in some fashion. 
 
 - **Date for pay** - the date of your paycheck or date associated with the income being entered. The application can parse most date formats. 
 - **Gross Pay** - the amount of money you made in its entirety before taxes were withdrawn.
@@ -109,7 +108,7 @@ Settings under [Graph] allow you to change the size of the plot that's generated
 Once you have your .csv and your config files ready to go, you can run the application. Just open a terminal and type the command:
 
 ```
-savingsrates -p /home/brad/Documents/Code/Projects/MMM_Savings_Rate/config/
+savingsrates -p /home/joeconsumer/Documents/Code/Projects/MMM_Savings_Rate/config/
 ```
 The -p flag should specify the full path to your directory of config files. When you run the command a plot of your monthly savings rates should open in a browser window.
 
