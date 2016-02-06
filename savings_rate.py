@@ -32,7 +32,7 @@ from bokeh.plotting import figure, output_file, show
 from bokeh.embed import components
 from decimal import *
 import simple_math as sm
-from file_parsing import is_number_of_some_sort, are_numeric
+from file_parsing import is_number_of_some_sort, are_numeric, clean_strings
 
 # For debugging
 from pprint import pprint 
@@ -174,8 +174,10 @@ class SRConfig:
         # Required columns for spreadsheets
         # Column names set in the config must exist in the .csv when we load it
         # These values are used later to ensure mappings to the .csv are correct
-        self.required_income_columns = set([self.gross_income, self.employer_match, self.pay_date]).union(set(self.taxes_and_fees.split(',')))
-        self.required_savings_columns = set([self.savings_date]).union(set(self.savings_accounts.split(',')))
+        self.required_income_columns = set([self.gross_income, \
+                                            self.employer_match, \
+                                            self.pay_date]).union(clean_strings(set(self.taxes_and_fees.split(','))))
+        self.required_savings_columns = set([self.savings_date]).union(set(clean_strings(self.savings_accounts.split(','))))
 
 
     def validate_user_ini(self):
@@ -359,7 +361,7 @@ class SavingsRate:
 
         assert val == True, \
             'The ' + spreadsheet + ' spreadsheet is missing a column header. ' + \
-            'following columns were configured: ' + str(required[spreadsheet]) + ' ' + \
+            'The following columns were configured: ' + str(required[spreadsheet]) + ' ' + \
             'but these column headings were found in the spreadsheet: ' + str(row)
 
 
@@ -716,9 +718,13 @@ class SavingsRate:
 
             # Get income data for inclusion, cells containing blank 
             # strings are converted to zeros.
-            income_gross = 0 if income[payout][self.config.gross_income] == '' else income[payout][self.config.gross_income]
-            income_match = 0 if income[payout][self.config.employer_match] == '' else income[payout][self.config.employer_match]
-            income_taxes = [0 if income[payout][val] == '' else income[payout][val] for val in self.config.taxes_and_fees.split(',')]
+            income_gross = 0 if income[payout][self.config.gross_income] == '' else \
+                                income[payout][self.config.gross_income]
+            income_match = 0 if income[payout][self.config.employer_match] == '' else \
+                                income[payout][self.config.employer_match]
+            income_taxes = [0 if income[payout][val] == '' else \
+                                income[payout][val] \
+                                    for val in clean_strings(self.config.taxes_and_fees.split(','))]
 
             # Validate income spreadsheet data
             assert are_numeric([income_gross, income_match]) == True
@@ -747,7 +753,9 @@ class SavingsRate:
                     if tran_month == pay_month:
 
                         # Define savings data for inclusion
-                        bank = [savings[transfer][val] for val in self.config.savings_accounts.split(',') if savings[transfer][val] != '']
+                        bank = [savings[transfer][val] for val in \
+                            clean_strings(self.config.savings_accounts.split(',')) \
+                                if savings[transfer][val] != '']
 
                         # Validate savings spreadsheet data
                         assert are_numeric(bank) == True
