@@ -322,10 +322,6 @@ class SavingsRate:
         # Load the configurations
         self.config = config 
 
-        # Don't require psycopg2 for desktop users
-        if self.config.mode == 'postgres':
-            import psycopg2
-
         # Load income and savings information
         self.get_pay()
         self.get_savings() 
@@ -372,6 +368,10 @@ class SavingsRate:
         Returns:
             A cursor object.
         """
+        # Don't require psycopg2 for desktop users
+        if self.config.mode == 'postgres':
+            import psycopg2
+
         #Define our connection string
         conn_string = "host='%s' dbname='%s' user='%s' password='%s'" % (self.config.db_host, self.config.db_name, self.config.db_user, self.config.db_password)
 
