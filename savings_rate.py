@@ -501,12 +501,15 @@ class SavingsRate:
         with open(self.config.pay_source) as csvfile:
             retval = OrderedDict() 
             reader = csv.DictReader(csvfile)
+            count = 0
             for row in reader:
                 # Make sure required columns are in the spreadsheet
                 self.test_columns(set(row.keys()), 'income')
                 dt_obj = parser.parse(row[self.config.pay_date])
                 date = dt_obj.strftime(self.config.date_format)
-                retval[date] = row
+                unique_id = date + '-' + str(count)
+                retval[unique_id] = row
+                count += 1
             self.income = retval
 
 
@@ -540,14 +543,15 @@ class SavingsRate:
         with open(self.config.savings_source) as csvfile:
             retval = OrderedDict() 
             reader = csv.DictReader(csvfile)
+            count = 0
             for row in reader:
                 # Make sure required columns are in the spreadsheet
                 self.test_columns(set(row.keys()), 'savings')
-                
                 dt_obj = parser.parse(row[self.config.savings_date])
                 date = dt_obj.strftime(self.config.date_format)
-
-                retval[date] = row 
+                unique_id = date + '-' + str(count)
+                retval[unique_id] = row
+                count += 1
             self.savings = retval
 
 
@@ -713,7 +717,10 @@ class SavingsRate:
         # Loop over income and savings
         for payout in income:
             # Structure the date
-            pay_dt_obj = datetime.datetime.strptime(payout, self.config.date_format)
+            date_string = income[payout][self.config.pay_date]
+            date_string_obj = datetime.datetime.strptime(date_string, '%m/%d/%y')
+            new_date_string = date_string_obj.strftime(self.config.date_format)
+            pay_dt_obj = datetime.datetime.strptime(new_date_string, self.config.date_format)
             pay_month = pay_dt_obj.strftime(date_format)
 
             # Get income data for inclusion, cells containing blank 
@@ -747,8 +754,9 @@ class SavingsRate:
 
             if 'savings' not in sr[pay_month]:
                 for transfer in savings:
-                    tran_dt_obj = datetime.datetime.strptime(transfer, self.config.date_format)
-                    tran_month = tran_dt_obj.strftime(date_format)
+                    tran_date_string = savings[transfer][self.config.savings_date]
+                    tran_date_string_obj = parser.parse(tran_date_string)
+                    tran_month = tran_date_string_obj.strftime(date_format)
 
                     if tran_month == pay_month:
 
