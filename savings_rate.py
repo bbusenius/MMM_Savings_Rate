@@ -215,7 +215,9 @@ class SRConfig:
 
         # Set configurations
         self.pay_source = self.user_config.get('Sources', 'pay')
+        self.pay_date = self.user_config.get('Sources', 'pay_date')
         self.savings_source = self.user_config.get('Sources', 'savings')
+        self.savings_date = self.user_config.get('Sources', 'savings_date')
         self.gross_income = self.user_config.get('Sources', 'gross_income')
         self.employer_match = self.user_config.get('Sources', 'employer_match')
         self.taxes_and_fees = self.user_config.get('Sources', 'taxes_and_fees')
@@ -423,14 +425,17 @@ class SavingsRate:
 
         # Loop over the info and build a datastructure
         retval = OrderedDict()
+        count = 0
         for date, gross_pay, employer_match, taxes_and_fees in cursor.fetchall():
             
             date_string = date.strftime(self.config.date_format)
+            unique_id = date_string + '-' + str(count)
             # Load the data, dictionary keys are entirely arbitrary
-            retval[date_string] = {'Date': date, 
-                                    self.config.gross_income : self.clean_num(gross_pay), 
-                                    self.config.employer_match : self.clean_num(employer_match), 
-                                    self.config.taxes_and_fees : self.clean_num(taxes_and_fees)} 
+            retval[unique_id] = {'Date': date, 
+                                  self.config.gross_income : self.clean_num(gross_pay), 
+                                  self.config.employer_match : self.clean_num(employer_match), 
+                                  self.config.taxes_and_fees : self.clean_num(taxes_and_fees)}
+            count += 1 
 
         self.income = retval
 
@@ -481,10 +486,13 @@ class SavingsRate:
 
         # Loop over the info and build a datastructure
         retval = OrderedDict()
+        count = 0
         for date, amount in cursor.fetchall():
             date_string = date.strftime(self.config.date_format)
+            unique_id = date_string + '-' + str(count)
             # Load the data, dictionary keys are entirely arbitrary
-            retval[date_string] = {'Date': date, self.config.savings_accounts : amount } 
+            retval[unique_id] = {'Date': date, self.config.savings_accounts : amount }
+            count += 1 
         self.savings = retval
         
 
@@ -717,8 +725,8 @@ class SavingsRate:
         # Loop over income and savings
         for payout in income:
             # Structure the date
-            date_string = income[payout][self.config.pay_date]
-            date_string_obj = datetime.datetime.strptime(date_string, '%m/%d/%y')
+            date_string = str(income[payout][self.config.pay_date])
+            date_string_obj = parser.parse(date_string)
             new_date_string = date_string_obj.strftime(self.config.date_format)
             pay_dt_obj = datetime.datetime.strptime(new_date_string, self.config.date_format)
             pay_month = pay_dt_obj.strftime(date_format)
@@ -754,7 +762,7 @@ class SavingsRate:
 
             if 'savings' not in sr[pay_month]:
                 for transfer in savings:
-                    tran_date_string = savings[transfer][self.config.savings_date]
+                    tran_date_string = str(savings[transfer][self.config.savings_date])
                     tran_date_string_obj = parser.parse(tran_date_string)
                     tran_month = tran_date_string_obj.strftime(date_format)
 
