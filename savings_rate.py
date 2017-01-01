@@ -420,7 +420,7 @@ class SavingsRate:
         # Connect to the database and retrieve the needed fields
         cursor = self.connect_to_postgres_db()
         query = 'select date, gross_pay, employer_match, taxes_and_fees '\
-            'from %s where user_id = %s' % (self.config.pay_source, self.config.user[0])
+            'from %s where user_id = %s order by date' % (self.config.pay_source, self.config.user[0])
         cursor.execute(query)
 
         # Loop over the info and build a datastructure
@@ -481,7 +481,7 @@ class SavingsRate:
         # Connect to the database and retrieve the needed fields
         cursor = self.connect_to_postgres_db()
         query = 'select date, amount '\
-            'from %s where user_id = %s' % (self.config.savings_source, self.config.user[0])
+            'from %s where user_id = %s order by date' % (self.config.savings_source, self.config.user[0])
         cursor.execute(query)
 
         # Loop over the info and build a datastructure
