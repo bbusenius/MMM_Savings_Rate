@@ -4,6 +4,7 @@
 *.orig
 *.log
 *.html
+*.png.xmp
 /dist/
 /*.egg-info
 /.eggs

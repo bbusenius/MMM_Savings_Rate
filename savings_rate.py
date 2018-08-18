@@ -30,6 +30,7 @@ import getpass
 from collections import OrderedDict
 from bokeh.plotting import figure, output_file, show
 from bokeh.embed import components
+from bokeh.models import DatetimeTickFormatter
 from decimal import *
 import simple_math as sm
 from file_parsing import is_number_of_some_sort, are_numeric, clean_strings
@@ -890,7 +891,7 @@ class Plot:
         # Create a plot with a title and axis labels
         p = figure(title="Monthly Savings Rates", y_axis_label='% of take home pay', x_axis_type="datetime")
 
-        p.below[0].formatter.formats = dict(years=['%Y'],
+        p.below[0].formatter = DatetimeTickFormatter(years=['%Y'],
                                      months=['%b %Y'],
                                      days=['%b %d %Y'])
 
