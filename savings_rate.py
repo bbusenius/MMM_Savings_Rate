@@ -22,7 +22,6 @@ import configparser
 import csv
 from dateutil import parser
 import datetime
-import mintapi
 import keyring
 import certifi
 import sys
@@ -151,7 +150,7 @@ class SRConfig:
         # Validate the configparser config object
         self.validate_user_ini()
 
-        # Source of savings data (mint.com or .csv)
+        # Source of savings data (.csv)
         self.savings_source = self.user_config.get('Sources', 'savings')
 
         # Source of income data
@@ -529,9 +528,7 @@ class SavingsRate:
         Args:
             None
         """
-        if self.config.savings_source == 'mint':
-            return self.load_savings_from_mint()
-        elif self.config.mode == 'ini': 
+        if self.config.mode == 'ini': 
             return self.load_savings_from_csv()
         elif self.config.mode == 'postgres':
             return self.load_savings_from_postgres()
@@ -564,75 +561,6 @@ class SavingsRate:
             self.savings = retval
 
 
-    def load_savings_from_mint(self):
-        """
-        Load spending data from mint.com.
-
-        Args:
-            None
-
-        Returns:
-            None, loads data from mint.com and attempts to save 
-            user info. to the keyring if possible.
-        """
-
-        # Get username for mint.com from the config.ini
-        username = self.config.get('Mint', 'username')
-
-        # Get the password if available
-        password = keyring.get_password(self.config.get('Sources', 'savings'), self.config.get('Mint', 'username'))
-
-        # If the password isn't available get it and set it
-        if not password:
-            password = getpass.getpass("Enter your password for mint.com: ") 
-            save = self.query_yes_no("Would you like to save the password to your system keyring?", None)
-            
-            # Store the password in the keyring if the user gives permission
-            if save == True:
-                keyring.set_password(self.config.get('Sources', 'spending'), username, password)
-                
-        # Instantiate a mint instance
-        mint = mintapi.Mint(username, password)
-        transactions = mint.get_transactions()
-
-        # Accounts used to track spending
-        savings_accounts = self.get_mint_savings_accounts()
-        
-        # DEBUG - complaints[is_noise & in_brooklyn][['Complaint Type', 'Borough', 'Created Date', 'Descriptor']][:10]
-        logging.basicConfig(filename=self.log,level=logging.DEBUG)
-        #logging.debug()        
- 
-        # Booleans for testing
-        is_credit = transactions['transaction_type'] == 'credit'
-        is_transfer = transactions['category'] == 'transfer'
-        is_deposit = transactions['category'] == 'deposit'
-
-        # TO DO - Learn how to do more processing here for efficiency instead of
-        # crosswalking all the data below
-        deposits = transactions[is_savings_account][['transaction_type', 'category', 'account_name', 'date', 'description', 'amount']] 
-        #logging.debug(transactions[is_transfer])     
-
-        # Crosswalk the data
-        savings = self.crosswalk_mint_savings(deposits)
-
-
-    def crosswalk_mint_savings(self, deposits):
-        #logging.debug(deposits.iteritems())
-        pass
-
-    def get_mint_savings_accounts(self):
-        """
-        Get accounts used for tracking savings in mint.com.
-
-        Args:
-            None
-
-        Returns:
-            Set of accounts used for tracking savings in mint. 
-        """
-        return set(self.config.get('Mint', 'savings_accounts').split(':'))
-
-
     def get_taxes_from_csv(self):
         """
         Get the .csv column headers used for tracking taxes and fees 
@@ -642,7 +570,7 @@ class SavingsRate:
             None
 
         Returns:
-            Set of accounts used for tracking savings in mint. 
+            Set of accounts used for tracking savings. 
         """
         return set(self.config.user_config.get('Sources', 'taxes_and_fees').split(','))
 

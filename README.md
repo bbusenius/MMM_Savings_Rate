@@ -103,7 +103,6 @@ The majority of what's here is listed under [Sources]. Settings include:
 - **war** - allows you to show or hide, "enemy" plots on your graph. Set this to, "off" if you only want to see your own data.
 
 Settings under [Graph] allow you to change the size of the plot that's generated. 
-*Note: Mint integration is not yet operational*.
 
 ### Running the simulation
 

@@ -34,7 +34,6 @@ setup(
         'certifi',
         'diablo-python',
         'keyring',
-        'mintapi',
         'python-dateutil',
     ],
     test_suite='tests',

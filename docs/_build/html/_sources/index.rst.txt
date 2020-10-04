@@ -189,7 +189,7 @@ The majority of what's here is listed under [Sources]. Settings include:
    Set this to, "off" if you only want to see your own data.
 
 Settings under [Graph] allow you to change the size of the plot that's
-generated. *Note: Mint integration is not yet operational*.
+generated.
 
 Running the simulation
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -224,7 +224,7 @@ API Documentation
 * :ref:`modindex`
 
 ``savings_rate`` Package
-=======================
+========================
 
 .. automodule:: savings_rate
    :members:
