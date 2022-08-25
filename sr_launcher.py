@@ -1,5 +1,5 @@
-# MMM Savings Rate is an application that can parse spreadsheets and  
-# use the data to calculate and plot a user's savings rate over time. 
+# MMM Savings Rate is an application that can parse spreadsheets and
+# use the data to calculate and plot a user's savings rate over time.
 # The application was inspired by Mr. Money Mustache and it uses his
 # methodology to make the calculations.
 
@@ -15,18 +15,20 @@
 # GNU General Public License for more details.
 
 # You should have received a copy of the GNU General Public License
-# along with this program.  If not, see 
+# along with this program.  If not, see
 # <https://www.gnu.org/licenses/gpl-3.0.html/>.
 
 import argparse
-from savings_rate import SRConfig, SavingsRate, Plot
+
+from savings_rate import Plot, SavingsRate, SRConfig
+
 
 def run():
     """
     Run the application in, "ini" mode.
 
     Args:
-        config_path: string, path to a directory of config 
+        config_path: string, path to a directory of config
         .ini files. Should include a trailing "/".
     """
     # Capture commandline arguments. prog='' argument must
@@ -47,4 +49,3 @@ def run():
     # Plot the user's savings rate
     user_plot = Plot(savings_rate)
     user_plot.plot_savings_rates(monthly_rates)
-

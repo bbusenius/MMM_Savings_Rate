@@ -1,8 +1,8 @@
-# MMM Savings Rate is an application that can parse spreadsheets and  
-# use the data to calculate and plot a user's savings rate over time. 
+# MMM Savings Rate is an application that can parse spreadsheets and
+# use the data to calculate and plot a user's savings rate over time.
 # The application was inspired by Mr. Money Mustache and it uses his
 # methodology to make the calculations.
- 
+
 # Copyright (C) 2016 Brad Busenius
 
 # This program is free software: you can redistribute it and/or modify
@@ -15,54 +15,44 @@
 # GNU General Public License for more details.
 
 # You should have received a copy of the GNU General Public License
-# along with this program.  If not, see 
+# along with this program.  If not, see
 # <https://www.gnu.org/licenses/gpl-3.0.html/>.
 
 import configparser
 import csv
-from dateutil import parser
 import datetime
-import keyring
-import certifi
 import sys
-import getpass
 from collections import OrderedDict
-from bokeh.plotting import figure, output_file, show
+from decimal import *
+
+import simple_math as sm
 from bokeh.embed import components
 from bokeh.models import DatetimeTickFormatter
-from decimal import *
-import simple_math as sm
-from file_parsing import is_number_of_some_sort, are_numeric, clean_strings
-
-# For debugging
-from pprint import pprint 
-import logging
-import cProfile
+from bokeh.plotting import figure, output_file, show
+from dateutil import parser
+from file_parsing import are_numeric, clean_strings, is_number_of_some_sort
 
 REQUIRED_INI_ACCOUNT_OPTIONS = {'Users': ['self']}
 
 REQUIRED_INI_USER_OPTIONS = {
-    'Sources' : [
-        'pay', 
-        'pay_date', 
-        'gross_income', 
-        'employer_match', 
-        'taxes_and_fees', 
-        'savings', 
-        'savings_accounts', 
-        'savings_date', 
-        'war'
+    'Sources': [
+        'pay',
+        'pay_date',
+        'gross_income',
+        'employer_match',
+        'taxes_and_fees',
+        'savings',
+        'savings_accounts',
+        'savings_date',
+        'war',
     ],
-    'Graph' : [
-        'width', 
-        'height'
-    ]
+    'Graph': ['width', 'height'],
 }
 
 
 class SRConfig:
     """
-    Class for loading configurations to pass to the 
+    Class for loading configurations to pass to the
     savings rate object.
 
     Args:
@@ -74,16 +64,16 @@ class SRConfig:
 
         user_conf: a string name of a  user .ini file.
 
-        user: optional, an integer representing the 
-        unique id of a user. This is only needed when 
-        running as part of an application connected to 
-        a database. Not necessary when running with 
+        user: optional, an integer representing the
+        unique id of a user. This is only needed when
+        running as part of an application connected to
+        a database. Not necessary when running with
         csv files.
 
         enemies: optional, a list of integers representing
-        the unique ids of user enemies. Like the above, this 
-        is only needed when running as part of an application 
-        connected to a database. Not necessary when running 
+        the unique ids of user enemies. Like the above, this
+        is only needed when running as part of an application
+        connected to a database. Not necessary when running
         with csv files.
 
         test: boolean, defaults to False. Set
@@ -91,11 +81,20 @@ class SRConfig:
         under a different name.
 
         test_file: string, name of an .ini to test.
-        Defaults to None and should only be set if 
+        Defaults to None and should only be set if
         test=True.
     """
-    def __init__(self, mode='ini', user_conf_dir=None, user_conf=None, \
-        user=None, enemies=None, test=False, test_file=None):
+
+    def __init__(
+        self,
+        mode='ini',
+        user_conf_dir=None,
+        user_conf=None,
+        user=None,
+        enemies=None,
+        test=False,
+        test_file=None,
+    ):
 
         self.mode = mode
         self.user_conf_dir = user_conf_dir
@@ -103,7 +102,7 @@ class SRConfig:
         if self.mode == 'ini':
             self.is_test = test
             self.test_account_ini = test_file
-            self.load_account_config() 
+            self.load_account_config()
         elif self.mode == 'postgres':
             self.user = [user]
             self.user_enemies = [[]]
@@ -113,18 +112,16 @@ class SRConfig:
         # Set the date format to use
         self.date_format = '%Y-%m-%d'
 
-
     def load_account_config(self):
         """
-        Wrapper function, loads configurations from 
+        Wrapper function, loads configurations from
         ini files.
         """
         return self.load_account_config_from_ini()
 
-
     def load_user_config(self):
         """
-        Wrapper function, load the user configurations 
+        Wrapper function, load the user configurations
         from .ini files or the db
         """
         if self.mode == 'ini':
@@ -132,7 +129,6 @@ class SRConfig:
         elif self.mode == 'postgres':
             config = self.load_user_config_for_postgres()
         return config
-
 
     def load_user_config_from_ini(self):
         """
@@ -142,10 +138,12 @@ class SRConfig:
         self.user_config = configparser.RawConfigParser()
         config = self.user_config.read(self.user_ini)
 
-        # Raise an exception if a user config 
-        # cannot be found 
+        # Raise an exception if a user config
+        # cannot be found
         if config == []:
-            raise FileNotFoundError('The user config is an empty []. Create a user config file and make sure it\'s referenced in account-config.ini.')
+            raise FileNotFoundError(
+                'The user config is an empty []. Create a user config file and make sure it\'s referenced in account-config.ini.'
+            )
 
         # Validate the configparser config object
         self.validate_user_ini()
@@ -174,38 +172,49 @@ class SRConfig:
         # Required columns for spreadsheets
         # Column names set in the config must exist in the .csv when we load it
         # These values are used later to ensure mappings to the .csv are correct
-        self.required_income_columns = set([self.gross_income, \
-                                            self.employer_match, \
-                                            self.pay_date]).union(clean_strings(set(self.taxes_and_fees.split(','))))
-        self.required_savings_columns = set([self.savings_date]).union(set(clean_strings(self.savings_accounts.split(','))))
-
+        self.required_income_columns = set(
+            [self.gross_income, self.employer_match, self.pay_date]
+        ).union(clean_strings(set(self.taxes_and_fees.split(','))))
+        self.required_savings_columns = set([self.savings_date]).union(
+            set(clean_strings(self.savings_accounts.split(',')))
+        )
 
     def validate_user_ini(self):
         """
-        Minimum validation for the user 
+        Minimum validation for the user
         config.ini when running in 'ini' mode.
         """
         # Required section and options
         for section in REQUIRED_INI_USER_OPTIONS:
-            assert self.user_config.has_section(section), \
+            assert self.user_config.has_section(section), (
                 '[' + section + '] is a required section in the user config.ini.'
+            )
             for option in REQUIRED_INI_USER_OPTIONS[section]:
-                assert self.user_config.has_option(section, option), \
-                    'The "' + option + '" option is required in the [' + section + '] section of config.ini.'
+                assert self.user_config.has_option(section, option), (
+                    'The "'
+                    + option
+                    + '" option is required in the ['
+                    + section
+                    + '] section of config.ini.'
+                )
 
         # Assumptions about the data
-        assert are_numeric([self.user_config.get('Graph', 'width'), \
-            self.user_config.get('Graph', 'height')]) == True, \
-                '[Graph] width and height must contain numeric values.'
+        assert (
+            are_numeric(
+                [
+                    self.user_config.get('Graph', 'width'),
+                    self.user_config.get('Graph', 'height'),
+                ]
+            )
+            == True
+        ), '[Graph] width and height must contain numeric values.'
 
- 
     def load_user_config_for_postgres(self):
         """
         Get user configurations from the database.
         """
         # Get user configurations
         self.user_config = configparser.RawConfigParser()
-        config = self.user_config.read(self.user_ini)
 
         # Get database configurations
         self.db_host = self.user_config.get('PostgreSQL', 'host')
@@ -223,48 +232,61 @@ class SRConfig:
         self.taxes_and_fees = self.user_config.get('Sources', 'taxes_and_fees')
         self.savings_accounts = self.user_config.get('Sources', 'savings_accounts')
         self.war_mode = self.user_config.getboolean('Sources', 'war')
-    
 
     def load_account_config_from_ini(self):
         """
         Get the configurations from an .ini file.
-        Throw an exception if the file is lacking 
+        Throw an exception if the file is lacking
         required data.
         """
         # Load the ini
         self.account_config = configparser.RawConfigParser()
         if not self.is_test:
-            account_config = self.account_config.read(self.user_conf_dir + 'account-config.ini')
+            account_config = self.account_config.read(
+                self.user_conf_dir + 'account-config.ini'
+            )
         else:
             try:
-                account_config = self.account_config.read(self.user_conf_dir + self.test_account_ini)
+                account_config = self.account_config.read(
+                    self.user_conf_dir + self.test_account_ini
+                )
             except:
-                raise RuntimeError('If test=True, a test .ini must be provided. You must provide a value for test_file.')
+                raise RuntimeError(
+                    'If test=True, a test .ini must be provided. You must provide a value for test_file.'
+                )
 
         # Raise an exception if the account_config comes back empty
         if account_config == []:
-            raise FileNotFoundError('The account_config is an empty []. A file named, "account-config.ini" was not found. This file must exist.')
+            raise FileNotFoundError(
+                'The account_config is an empty []. A file named, "account-config.ini" was not found. This file must exist.'
+            )
 
         # Validate the ini file.
         self.validate_account_ini()
 
-        # Crosswalk data for the main player if it 
+        # Crosswalk data for the main player if it
         # exists, otherwise throw an exception.
         self.user = self.account_config.get('Users', 'self').split(',')
 
         # If enemies isn't in the account-config.ini
         # set it to None.
         try:
-            self.user_enemies = [enemy.split(',') for enemy in self.account_config.get('Users', 'enemies').split('|')]
-        except(KeyError, configparser.NoOptionError):
+            self.user_enemies = [
+                enemy.split(',')
+                for enemy in self.account_config.get('Users', 'enemies').split('|')
+            ]
+        except (KeyError, configparser.NoOptionError):
             self.user_enemies = None
 
         # Set a log file (optional)
-        self.log = self.account_config.get('Dev', 'logfile') if self.account_config.has_section('Dev') else None
-        
+        self.log = (
+            self.account_config.get('Dev', 'logfile')
+            if self.account_config.has_section('Dev')
+            else None
+        )
+
         # Validate the data loaded from account-config.ini
         self.validate_loaded_account_data()
-
 
     def load_account_config_from_postgres(self):
         """
@@ -272,39 +294,42 @@ class SRConfig:
         """
         pass
 
-
     def validate_account_ini(self):
         """
         Minimum validation for account-config.ini.
         """
         # Required sections
-        assert self.account_config.has_section('Users'), \
-            '[Users] is a required section in account-config.ini.'
+        assert self.account_config.has_section(
+            'Users'
+        ), '[Users] is a required section in account-config.ini.'
 
-        # Required options 
-        assert self.account_config.has_option('Users', 'self'), \
-            'The "self" option is required in the [Users] section of account-config.ini.'
-
+        # Required options
+        assert self.account_config.has_option(
+            'Users', 'self'
+        ), 'The "self" option is required in the [Users] section of account-config.ini.'
 
     def validate_loaded_account_data(self):
         """
-        Validate the data loaded from 
+        Validate the data loaded from
         account-config.ini.
         """
-        assert len(self.user) == 3, \
-            'The "self" option in the [Users] section should have an id, name, and path to user config separated by commas.'
+        assert (
+            len(self.user) == 3
+        ), 'The "self" option in the [Users] section should have an id, name, and path to user config separated by commas.'
 
         user_ids = set([])
         main_user_id = self.user[0]
         user_ids.add(main_user_id)
 
         if self.user_enemies:
-            i = 1 # Self, already added
+            i = 1  # Self, already added
             for enemy in self.user_enemies:
                 user_ids.add(enemy[0])
-                assert len(enemy) == 3, 'The "enemies" option in account-config.ini is not set correctly.' 
+                assert (
+                    len(enemy) == 3
+                ), 'The "enemies" option in account-config.ini is not set correctly.'
                 i += 1
-            assert len(user_ids) ==  i, 'Every user ID must be unique.'
+            assert len(user_ids) == i, 'Every user ID must be unique.'
 
 
 class SavingsRate:
@@ -312,56 +337,64 @@ class SavingsRate:
     Class for getting and calculating a monthly savings rate
     based on information about monthly pay and spending.
     """
-    
+
     def __init__(self, config):
         """
-        Initialize the object with settings from the config file. 
+        Initialize the object with settings from the config file.
 
         Args:
             config: object
         """
 
         # Load the configurations
-        self.config = config 
+        self.config = config
 
         # Load income and savings information
         self.get_pay()
-        self.get_savings() 
-
+        self.get_savings()
 
     def test_columns(self, row, spreadsheet):
         """
-        Make sure the required columns are present for different 
+        Make sure the required columns are present for different
         types of spreadsheets, ensure that what was mapped in the
-        config.ini exists as a column header in the spreadsheet. 
+        config.ini exists as a column header in the spreadsheet.
 
         Args:
             row: a set representing column headers from a spreadsheet.
 
-            spreadsheet: string, the type of spreadsheet to validate. 
+            spreadsheet: string, the type of spreadsheet to validate.
             Possible values are "income" or "savings".
 
         Returns:
             None, throws an AssertionError if spreadsheet column names
-            don't match what was set in the configuration. Raises a 
+            don't match what was set in the configuration. Raises a
             ValueError if a bad argument is passed.
         """
-        
-        required = {'income': self.config.required_income_columns,
-                    'savings': self.config.required_savings_columns}
+
+        required = {
+            'income': self.config.required_income_columns,
+            'savings': self.config.required_savings_columns,
+        }
 
         if spreadsheet in required:
             val = row.issuperset(required[spreadsheet])
         else:
-            msg = 'You passed an improper spreadsheet type to test_columns(). ' + \
-                  'Possible values are "income" and "savings"'
+            msg = (
+                'You passed an improper spreadsheet type to test_columns(). '
+                + 'Possible values are "income" and "savings"'
+            )
             raise ValueError(msg)
 
-        assert val == True, \
-            'The ' + spreadsheet + ' spreadsheet is missing a column header. ' + \
-            'The following columns were configured: ' + str(required[spreadsheet]) + ' ' + \
-            'but these column headings were found in the spreadsheet: ' + str(row)
-
+        assert val == True, (
+            'The '
+            + spreadsheet
+            + ' spreadsheet is missing a column header. '
+            + 'The following columns were configured: '
+            + str(required[spreadsheet])
+            + ' '
+            + 'but these column headings were found in the spreadsheet: '
+            + str(row)
+        )
 
     def connect_to_postgres_db(self):
         """
@@ -374,44 +407,47 @@ class SavingsRate:
         if self.config.mode == 'postgres':
             import psycopg2
 
-        #Define our connection string
-        conn_string = "host='%s' dbname='%s' user='%s' password='%s'" % (self.config.db_host, self.config.db_name, self.config.db_user, self.config.db_password)
+        # Define our connection string
+        conn_string = "host='%s' dbname='%s' user='%s' password='%s'" % (
+            self.config.db_host,
+            self.config.db_name,
+            self.config.db_user,
+            self.config.db_password,
+        )
 
         # Print a message
         print("Connecting to database...")
-     
+
         # Get a connection, if a connect cannot be made an exception will be raised here
         conn = psycopg2.connect(conn_string)
-     
+
         # conn.cursor will return a cursor object, you can use this cursor to perform queries
         return conn.cursor()
-
 
     def get_pay(self):
         """
         Loads payment data from a .csv fle.
 
-        Args: 
+        Args:
             None
 
         Returns:
         """
-        if self.config.mode == 'ini': 
+        if self.config.mode == 'ini':
             return self.load_pay_from_csv()
         elif self.config.mode == 'postgres':
             return self.load_pay_from_postgres()
         else:
             raise RuntimeError('Problem loading income information!')
 
-
     def load_pay_from_postgres(self):
         """
-        Loads income data from a PostgreSQL database 
+        Loads income data from a PostgreSQL database
         and stores it in self.income.
-        Expects number related columns to contain 
+        Expects number related columns to contain
         python Decimal objects.
 
-        Args: 
+        Args:
             None
 
         Returns:
@@ -419,31 +455,35 @@ class SavingsRate:
         """
         # Connect to the database and retrieve the needed fields
         cursor = self.connect_to_postgres_db()
-        query = 'select date, gross_pay, employer_match, taxes_and_fees '\
-            'from %s where user_id = %s order by date' % (self.config.pay_source, self.config.user[0])
+        query = (
+            'select date, gross_pay, employer_match, taxes_and_fees '
+            'from %s where user_id = %s order by date'
+            % (self.config.pay_source, self.config.user[0])
+        )
         cursor.execute(query)
 
         # Loop over the info and build a datastructure
         retval = OrderedDict()
         count = 0
         for date, gross_pay, employer_match, taxes_and_fees in cursor.fetchall():
-            
+
             date_string = date.strftime(self.config.date_format)
             unique_id = date_string + '-' + str(count)
             # Load the data, dictionary keys are entirely arbitrary
-            retval[unique_id] = {'Date': date, 
-                                  self.config.gross_income : self.clean_num(gross_pay), 
-                                  self.config.employer_match : self.clean_num(employer_match), 
-                                  self.config.taxes_and_fees : self.clean_num(taxes_and_fees)}
-            count += 1 
+            retval[unique_id] = {
+                'Date': date,
+                self.config.gross_income: self.clean_num(gross_pay),
+                self.config.employer_match: self.clean_num(employer_match),
+                self.config.taxes_and_fees: self.clean_num(taxes_and_fees),
+            }
+            count += 1
 
         self.income = retval
 
-
     def clean_num(self, number):
         """
-        Looks at numeric values to determine if they are numeric. 
-        Converts empty strings and null values to 0.0. Acceptable 
+        Looks at numeric values to determine if they are numeric.
+        Converts empty strings and null values to 0.0. Acceptable
         arguments are None, empty string, int, float, or decimal.
 
         Args:
@@ -455,24 +495,25 @@ class SavingsRate:
         try:
             number = number.strip()
         except:
-            pass 
+            pass
         if number == None or number == '':
             retval = 0.0
         elif is_number_of_some_sort(number):
             retval = number
         else:
-            raise TypeError('A numeric value was expected. The argument passed was non-numeric.')
+            raise TypeError(
+                'A numeric value was expected. The argument passed was non-numeric.'
+            )
         return retval
-
 
     def load_savings_from_postgres(self):
         """
-        Loads savings data from a PostgreSQL database 
+        Loads savings data from a PostgreSQL database
         and stores it in self.savings.
-        Expects number related columns to contain 
+        Expects number related columns to contain
         python Decimal objects.
 
-        Args: 
+        Args:
             None
 
         Returns:
@@ -480,8 +521,10 @@ class SavingsRate:
         """
         # Connect to the database and retrieve the needed fields
         cursor = self.connect_to_postgres_db()
-        query = 'select date, amount '\
-            'from %s where user_id = %s order by date' % (self.config.savings_source, self.config.user[0])
+        query = 'select date, amount ' 'from %s where user_id = %s order by date' % (
+            self.config.savings_source,
+            self.config.user[0],
+        )
         cursor.execute(query)
 
         # Loop over the info and build a datastructure
@@ -491,23 +534,22 @@ class SavingsRate:
             date_string = date.strftime(self.config.date_format)
             unique_id = date_string + '-' + str(count)
             # Load the data, dictionary keys are entirely arbitrary
-            retval[unique_id] = {'Date': date, self.config.savings_accounts : amount }
-            count += 1 
+            retval[unique_id] = {'Date': date, self.config.savings_accounts: amount}
+            count += 1
         self.savings = retval
-        
 
     def load_pay_from_csv(self):
         """
         Loads a paystub from a .csv file.
-        
-        Args: 
+
+        Args:
             None
 
         Returns:
             None
         """
         with open(self.config.pay_source) as csvfile:
-            retval = OrderedDict() 
+            retval = OrderedDict()
             reader = csv.DictReader(csvfile)
             count = 0
             for row in reader:
@@ -520,34 +562,32 @@ class SavingsRate:
                 count += 1
             self.income = retval
 
-
     def get_savings(self):
         """
         Get savings data from designated source.
-        
+
         Args:
             None
         """
-        if self.config.mode == 'ini': 
+        if self.config.mode == 'ini':
             return self.load_savings_from_csv()
         elif self.config.mode == 'postgres':
             return self.load_savings_from_postgres()
         else:
             raise RuntimeError('Problem loading savings information!')
 
-
     def load_savings_from_csv(self):
         """
         Loads savings data from a .csv file.
-        
-        Args: 
+
+        Args:
             None
 
         Returns:
             None
         """
         with open(self.config.savings_source) as csvfile:
-            retval = OrderedDict() 
+            retval = OrderedDict()
             reader = csv.DictReader(csvfile)
             count = 0
             for row in reader:
@@ -560,20 +600,18 @@ class SavingsRate:
                 count += 1
             self.savings = retval
 
-
     def get_taxes_from_csv(self):
         """
-        Get the .csv column headers used for tracking taxes and fees 
+        Get the .csv column headers used for tracking taxes and fees
         in the income related spreadsheet.
 
         Args:
             None
 
         Returns:
-            Set of accounts used for tracking savings. 
+            Set of accounts used for tracking savings.
         """
         return set(self.config.user_config.get('Sources', 'taxes_and_fees').split(','))
-
 
     def query_yes_no(self, question, default="yes"):
         """
@@ -581,21 +619,20 @@ class SavingsRate:
 
         Args:
             question: a string to be presented to the user.
-        
+
             default: string, the presumed answer if the user just hits <Enter>.
-            It must be "yes" (the default), "no" or None (meaning an answer is 
+            It must be "yes" (the default), "no" or None (meaning an answer is
             required of the user).
 
         Returns:
             boolean, the "answer" return value is True for "yes" or False for "no".
-        
+
         Credit:
             I didn't write this one. Credit for this function goes to Trent Mick:
             https://code.activestate.com/recipes/577058/
         """
 
-        valid = {"yes": True, "y": True, "ye": True,
-                 "no": False, "n": False}
+        valid = {"yes": True, "y": True, "ye": True, "no": False, "n": False}
         if default is None:
             prompt = " [y/n] "
         elif default == "yes":
@@ -613,9 +650,9 @@ class SavingsRate:
             elif choice in valid:
                 return valid[choice]
             else:
-                sys.stdout.write("Please respond with 'yes' or 'no' "
-                                 "(or 'y' or 'n').\n")
-
+                sys.stdout.write(
+                    "Please respond with 'yes' or 'no' " "(or 'y' or 'n').\n"
+                )
 
     def get_monthly_data(self):
         """
@@ -644,44 +681,53 @@ class SavingsRate:
 
         # For this data structure
         date_format = '%Y-%m'
-        
+
         # Column headers used for tracking taxes and fees
         taxes = self.get_taxes_from_csv()
 
         # Dataset to return
         sr = OrderedDict()
-        
+
         # Loop over income and savings
         for payout in income:
             # Structure the date
             date_string = str(income[payout][self.config.pay_date])
             date_string_obj = parser.parse(date_string)
             new_date_string = date_string_obj.strftime(self.config.date_format)
-            pay_dt_obj = datetime.datetime.strptime(new_date_string, self.config.date_format)
+            pay_dt_obj = datetime.datetime.strptime(
+                new_date_string, self.config.date_format
+            )
             pay_month = pay_dt_obj.strftime(date_format)
 
-            # Get income data for inclusion, cells containing blank 
+            # Get income data for inclusion, cells containing blank
             # strings are converted to zeros.
-            income_gross = 0 if income[payout][self.config.gross_income] == '' else \
-                                income[payout][self.config.gross_income]
-            income_match = 0 if income[payout][self.config.employer_match] == '' else \
-                                income[payout][self.config.employer_match]
-            income_taxes = [0 if income[payout][val] == '' else \
-                                income[payout][val] \
-                                    for val in clean_strings(self.config.taxes_and_fees.split(','))]
+            income_gross = (
+                0
+                if income[payout][self.config.gross_income] == ''
+                else income[payout][self.config.gross_income]
+            )
+            income_match = (
+                0
+                if income[payout][self.config.employer_match] == ''
+                else income[payout][self.config.employer_match]
+            )
+            income_taxes = [
+                0 if income[payout][val] == '' else income[payout][val]
+                for val in clean_strings(self.config.taxes_and_fees.split(','))
+            ]
 
             # Validate income spreadsheet data
             assert are_numeric([income_gross, income_match]) == True
             assert are_numeric(income_taxes) == True
 
             # If the data passes validation, convert it (strings to Decimal objects)
-            gross = Decimal(income_gross) 
-            employer_match = Decimal(income_match) 
+            gross = Decimal(income_gross)
+            employer_match = Decimal(income_match)
             taxes = sum([Decimal(tax) for tax in income_taxes])
 
-            #---Build the datastructure---
+            # ---Build the datastructure---
 
-            # Set main dictionary key, encapsulte data by month 
+            # Set main dictionary key, encapsulte data by month
             sr.setdefault(pay_month, {})
 
             # Set income related qualities for the month
@@ -698,36 +744,43 @@ class SavingsRate:
                     if tran_month == pay_month:
 
                         # Define savings data for inclusion
-                        bank = [savings[transfer][val] for val in \
-                            clean_strings(self.config.savings_accounts.split(',')) \
-                                if savings[transfer][val] != '']
+                        bank = [
+                            savings[transfer][val]
+                            for val in clean_strings(
+                                self.config.savings_accounts.split(',')
+                            )
+                            if savings[transfer][val] != ''
+                        ]
 
                         # Validate savings spreadsheet data
                         assert are_numeric(bank) == True
-                
+
                         # If the data passes validation, convert it (strings to Decimal objects)
-                        money_in_the_bank = sum([Decimal(investment) for investment in bank])
+                        money_in_the_bank = sum(
+                            [Decimal(investment) for investment in bank]
+                        )
 
                         # Set spending related qualities for the month
-                        sr[pay_month].setdefault('savings', []).append(money_in_the_bank)
+                        sr[pay_month].setdefault('savings', []).append(
+                            money_in_the_bank
+                        )
 
         return sr
 
-
     def get_monthly_savings_rates(self, test_data=False):
         """
-        Calculates the monthly savings rates over 
+        Calculates the monthly savings rates over
         a period of time.
 
         Args:
-            test_data: OrderedDict or boolean, for 
-            passing in test data. Defaults to false. 
+            test_data: OrderedDict or boolean, for
+            passing in test data. Defaults to false.
 
         Returns:
-            A list of tuples where the first item 
-            in each tupal is a python date object 
-            and the second item in each tuple is 
-            the savings rate for that month. 
+            A list of tuples where the first item
+            in each tupal is a python date object
+            and the second item in each tuple is
+            the savings rate for that month.
         """
         if not test_data:
             monthly_data = self.get_monthly_data()
@@ -736,10 +789,17 @@ class SavingsRate:
 
         monthly_savings_rates = []
         for month in monthly_data:
-            pay = sm.take_home_pay(sum(monthly_data[month]['income']), \
-                sum(monthly_data[month]['employer_match']), \
-                monthly_data[month]['taxes_and_fees'], 'decimal')
-            savings = sum(monthly_data[month]['savings']) if 'savings' in monthly_data[month] else 0 
+            pay = sm.take_home_pay(
+                sum(monthly_data[month]['income']),
+                sum(monthly_data[month]['employer_match']),
+                monthly_data[month]['taxes_and_fees'],
+                'decimal',
+            )
+            savings = (
+                sum(monthly_data[month]['savings'])
+                if 'savings' in monthly_data[month]
+                else 0
+            )
             spending = pay - savings
             srate = sm.savings_rate(pay, spending, 'decimal')
             date = datetime.datetime.strptime(month, '%Y-%m')
@@ -747,16 +807,15 @@ class SavingsRate:
 
         return monthly_savings_rates
 
-
     def average_monthly_savings_rates(self, monthly_rates):
         """
-        Calculates the average monthly savings rate 
+        Calculates the average monthly savings rate
         for a period of months.
 
         Args:
-            monthly_rates: a list of tuples where the 
-            first item in each tupal is a python date 
-            object and the second item in each tuple 
+            monthly_rates: a list of tuples where the
+            first item in each tupal is a python date
+            object and the second item in each tuple
             is the savings rate for that month.
 
         Returns:
@@ -767,7 +826,7 @@ class SavingsRate:
 
 class Plot:
     """
-    A class for plotting the monthly savings rates for an individual 
+    A class for plotting the monthly savings rates for an individual
     and his or her enemies.
     """
 
@@ -779,30 +838,37 @@ class Plot:
         self.user = user
 
         # Colors for plotting enemy graphs
-        self.colors = ['#B30000', '#E34A33', '#8856a7', '#4D9221', \
-                       '#404040', '#9E0142', '#0C2C84', '#810F7C']
-
+        self.colors = [
+            '#B30000',
+            '#E34A33',
+            '#8856a7',
+            '#4D9221',
+            '#404040',
+            '#9E0142',
+            '#0C2C84',
+            '#810F7C',
+        ]
 
     def plot_savings_rates(self, monthly_rates, embed=False):
         """
         Plots the monthly savings rates for a period of time.
 
         Args:
-            monthly_rates: a list of tuples where the first item in each 
-            tupal is a python date object and the second item in each 
+            monthly_rates: a list of tuples where the first item in each
+            tupal is a python date object and the second item in each
             tuple is the savings rate for that month.
 
-            embed, boolean defaults to False. Setting to true returns a 
+            embed, boolean defaults to False. Setting to true returns a
             plot for embedding in a web application.
 
         Returns:
-            None 
+            None
         """
 
         # Convenience variables
         graph_width = int(self.user.config.user_config.get('Graph', 'width'))
         graph_height = int(self.user.config.user_config.get('Graph', 'height'))
-        average_rate = self.user.average_monthly_savings_rates(monthly_rates) 
+        average_rate = self.user.average_monthly_savings_rates(monthly_rates)
         colors = list(self.colors)
 
         # Prepare the data
@@ -810,25 +876,34 @@ class Plot:
         y = []
         for data in monthly_rates:
             x.append(data[0])
-            y.append(data[1])
-
+            y.append(float(data[1]))  # Must cast Decimal to float because Bokeh cannot serialize Decimals anymore
 
         # Output to static HTML file
         output_file("savings-rates.html", title="Monthly Savings Rates")
-        
-        # Create a plot with a title and axis labels
-        p = figure(title="Monthly Savings Rates", y_axis_label='% of take home pay', x_axis_type="datetime")
 
-        p.below[0].formatter = DatetimeTickFormatter(years=['%Y'],
-                                     months=['%b %Y'],
-                                     days=['%b %d %Y'])
+        # Create a plot with a title and axis labels
+        p = figure(
+            title="Monthly Savings Rates",
+            y_axis_label='% of take home pay',
+            x_axis_type="datetime",
+        )
+
+        p.below[0].formatter = DatetimeTickFormatter(
+            years='%Y', months='%b %Y', days='%b %d %Y'
+        )
 
         # Add a line renderer with legend and line thickness
-        p.line(x, y, legend="My savings rate", line_width=2)
+        p.line(x, y, legend_label="My savings rate", line_width=2)
         p.circle(x, y, size=6)
 
         # Plot the average monthly savings rate
-        p.line(x, average_rate, legend="My average rate", line_color="#ff6600", line_dash="4 4")
+        p.line(
+            x,
+            average_rate,
+            legend_label="My average rate",
+            line_color="#ff6600",
+            line_dash="4 4",
+        )
 
         # Is PostgreSQL
         # Plot the savings rate of enemies if war_mode is on
@@ -854,7 +929,13 @@ class Plot:
                     enemy_y.append(enemy_data[1])
 
                 # Plot the monthly savings rate for enemies
-                p.line(enemy_x, enemy_y, legend=war[1] + '\'s savings rate', line_color=colors.pop(), line_width=2)
+                p.line(
+                    enemy_x,
+                    enemy_y,
+                    legend_label=war[1] + '\'s savings rate',
+                    line_color=colors.pop(),
+                    line_width=2,
+                )
 
                 # Reset the color palette if we run out of colors
                 if len(colors) == 0:
@@ -865,8 +946,8 @@ class Plot:
         # Show the results
         if embed == False:
             # Set the width and the height
-            p.plot_height=graph_height 
-            p.plot_width=graph_width 
+            p.height = graph_height
+            p.width = graph_width
             show(p)
         else:
             return components(p)
