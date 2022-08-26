@@ -1,5 +1,5 @@
 bokeh
--e git+https://github.com/bbusenius/Diablo-Python.git#egg=diablo_python
+git+https://github.com/bbusenius/Diablo-Python.git#egg=diablo_python
 numpy
 psycopg2
 python-dateutil
