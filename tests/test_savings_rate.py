@@ -1,6 +1,6 @@
 import unittest
 from collections import OrderedDict
-from decimal import *
+from decimal import Decimal
 
 from savings_rate import SavingsRate, SRConfig
 
@@ -10,9 +10,12 @@ class test_savings_rate(unittest.TestCase):
     Tests for individual methods.
     """
 
+    def setUp(self):
+        self.config = SRConfig('tests/test_config/', 'config-test.ini')
+        self.config_xlsx = SRConfig('tests/test_config/', 'config-test-xlsx.ini')
+
     def test_clean_num(self):
-        config = SRConfig('ini', 'tests/test_config/', 'config-test.ini')
-        sr = SavingsRate(config)
+        sr = SavingsRate(self.config)
 
         val1 = sr.clean_num('')
         val2 = sr.clean_num('     ')
@@ -42,6 +45,16 @@ class test_savings_rate(unittest.TestCase):
             val6, Decimal(4.4)
         ), '4.4 should evaluate to Decimal(4.4). It evaluated to ' + str(val6)
 
+    def test_file_extension(self):
+        sr = SavingsRate(self.config)
+        val1 = sr.file_extension('test.txt')
+        val2 = sr.file_extension('/this/is/just/a/test.csv')
+        val3 = sr.file_extension('')
+
+        self.assertEqual(val1, '.txt')
+        self.assertEqual(val2, '.csv')
+        self.assertEqual(val3, '')
+
     def test_spreadsheet_with_misconfigured_income_columns(self):
         """
         Test a spreadsheet that doesn't have the column
@@ -49,9 +62,8 @@ class test_savings_rate(unittest.TestCase):
         field set in the config.ini that doesn't exist in the
         corresponding .csv, should throw an assertion error.
         """
-        config = SRConfig('ini', 'tests/test_config/', 'config-test.ini')
-        config.required_income_columns = set(['Foo', 'Bar'])
-        self.assertRaises(AssertionError, SavingsRate, config)
+        self.config.required_income_columns = set(['Foo', 'Bar'])
+        self.assertRaises(AssertionError, SavingsRate, self.config)
 
     def test_spreadsheet_with_misconfigured_savings_columns(self):
         """
@@ -60,11 +72,10 @@ class test_savings_rate(unittest.TestCase):
         field set in the config.ini that doesn't exist in the
         corresponding .csv, should throw an assertion error.
         """
-        config = SRConfig('ini', 'tests/test_config/', 'config-test.ini')
-        config.required_savings_columns = config.required_savings_columns.union(
-            set(['Additional Heading'])
+        self.config.required_savings_columns = (
+            self.config.required_savings_columns.union(set(['Additional Heading']))
         )
-        self.assertRaises(AssertionError, SavingsRate, config)
+        self.assertRaises(AssertionError, SavingsRate, self.config)
 
     def test_data_loaded_by_load_pay_from_csv(self):
         """
@@ -72,8 +83,7 @@ class test_savings_rate(unittest.TestCase):
         they were entered that way. All required_income_columns
         should be present in the data structure.
         """
-        config = SRConfig('ini', 'tests/test_config/', 'config-test.ini')
-        sr = SavingsRate(config)
+        sr = SavingsRate(self.config)
 
         dates = []
         i = 0
@@ -89,14 +99,26 @@ class test_savings_rate(unittest.TestCase):
                 ), 'Income transaction dates are not in chronological order. Were they entered chronologically?'
             i += 1
 
+    def test_data_loaded_by_load_pay_from_xlsx(self):
+        """
+        Data loaded from an Excel spreadsheet should be the
+        same as data loaded from a .csv.
+        """
+        srcsv = SavingsRate(self.config)
+        srxlsx = SavingsRate(self.config_xlsx)
+        self.assertEqual(
+            srcsv.income,
+            srxlsx.income,
+            'Income loaded from a .csv and .xlsx should be the same.',
+        )
+
     def test_data_loaded_by_load_savings_from_csv(self):
         """
         Dates should be in chronological order assuming
         they were entered that way. All required_income_columns
         should be present in the data structure.
         """
-        config = SRConfig('ini', 'tests/test_config/', 'config-test.ini')
-        sr = SavingsRate(config)
+        sr = SavingsRate(self.config)
 
         dates = []
         i = 0
@@ -114,6 +136,19 @@ class test_savings_rate(unittest.TestCase):
                 ), 'Income transaction dates are not in chronological order. Were they entered chronologically?'
             i += 1
 
+    def test_data_loaded_by_load_savings_from_xlsx(self):
+        """
+        Data loaded from an Excel spreadsheet should be the
+        same as data loaded from a .csv.
+        """
+        srcsv = SavingsRate(self.config)
+        srxlsx = SavingsRate(self.config_xlsx)
+        self.assertEqual(
+            srcsv.savings,
+            srxlsx.savings,
+            'Savings loaded from a .csv and .xlsx should be the same.',
+        )
+
     def test_empty_csv_files(self):
         """
         The files exist with the proper column headings
@@ -121,7 +156,6 @@ class test_savings_rate(unittest.TestCase):
         shouldn't blow up.
         """
         config = SRConfig(
-            'ini',
             'tests/test_config/',
             'config-test-empty-csv.ini',
             test=True,
@@ -140,7 +174,6 @@ class test_savings_rate(unittest.TestCase):
         AssertionError, shouldn't it? What's going on here?
         """
         config = SRConfig(
-            'ini',
             'tests/test_config/',
             'config-test-blank-csv.ini',
             test=True,
@@ -153,19 +186,17 @@ class test_savings_rate(unittest.TestCase):
         There should be as many items as commas in
         the config +1.
         """
-        config = SRConfig('ini', 'tests/test_config/', 'config-test.ini')
-        sr = SavingsRate(config)
-        commas_in_config = config.user_config.get('Sources', 'taxes_and_fees').count(
-            ','
-        )
+        sr = SavingsRate(self.config)
+        commas_in_config = self.config.user_config.get(
+            'Sources', 'taxes_and_fees'
+        ).count(',')
         self.assertEqual(len(sr.get_taxes_from_csv()), commas_in_config + 1)
 
     def test_get_monthly_savings_rates_50_50(self):
         """
         %50 SR each month, %50 average
         """
-        config = SRConfig('ini', 'tests/test_config/', 'config-test.ini')
-        sr = SavingsRate(config)
+        sr = SavingsRate(self.config)
 
         md1 = OrderedDict()
         md1['2015-01'] = {
@@ -197,8 +228,7 @@ class test_savings_rate(unittest.TestCase):
         """
         %100 SR each month, %100 average
         """
-        config = SRConfig('ini', 'tests/test_config/', 'config-test.ini')
-        sr = SavingsRate(config)
+        sr = SavingsRate(self.config)
 
         md2 = OrderedDict()
         md2['2015-01'] = {
@@ -230,8 +260,7 @@ class test_savings_rate(unittest.TestCase):
         """
         %25 SR first month, %75 second month, %50 average
         """
-        config = SRConfig('ini', 'tests/test_config/', 'config-test.ini')
-        sr = SavingsRate(config)
+        sr = SavingsRate(self.config)
 
         md3 = OrderedDict()
         md3['2015-01'] = {
@@ -268,8 +297,7 @@ class test_savings_rate(unittest.TestCase):
         """
         %0 SR each month, %0 average
         """
-        config = SRConfig('ini', 'tests/test_config/', 'config-test.ini')
-        sr = SavingsRate(config)
+        sr = SavingsRate(self.config)
 
         md = OrderedDict()
         md['2015-01'] = {
@@ -301,8 +329,7 @@ class test_savings_rate(unittest.TestCase):
         """
         %0 SR each month, %0 average
         """
-        config = SRConfig('ini', 'tests/test_config/', 'config-test.ini')
-        sr = SavingsRate(config)
+        sr = SavingsRate(self.config)
 
         md = OrderedDict()
         md['2015-01'] = {

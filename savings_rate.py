@@ -21,10 +21,11 @@
 import configparser
 import csv
 import datetime
-import sys
+import os
 from collections import OrderedDict
-from decimal import *
+from decimal import Decimal
 
+import pandas as pd
 import simple_math as sm
 from bokeh.embed import components
 from bokeh.models import DatetimeTickFormatter
@@ -56,9 +57,6 @@ class SRConfig:
     savings rate object.
 
     Args:
-        mode: a string representing a general source
-        for data. Takes "ini" or "postgres".
-
         user_conf_dir: path to a directory of user .ini
         configuration files.
 
@@ -87,7 +85,6 @@ class SRConfig:
 
     def __init__(
         self,
-        mode='ini',
         user_conf_dir=None,
         user_conf=None,
         user=None,
@@ -96,16 +93,11 @@ class SRConfig:
         test_file=None,
     ):
 
-        self.mode = mode
         self.user_conf_dir = user_conf_dir
         self.user_ini = user_conf_dir + user_conf
-        if self.mode == 'ini':
-            self.is_test = test
-            self.test_account_ini = test_file
-            self.load_account_config()
-        elif self.mode == 'postgres':
-            self.user = [user]
-            self.user_enemies = [[]]
+        self.is_test = test
+        self.test_account_ini = test_file
+        self.load_account_config()
 
         self.load_user_config()
 
@@ -124,10 +116,7 @@ class SRConfig:
         Wrapper function, load the user configurations
         from .ini files or the db
         """
-        if self.mode == 'ini':
-            config = self.load_user_config_from_ini()
-        elif self.mode == 'postgres':
-            config = self.load_user_config_for_postgres()
+        config = self.load_user_config_from_ini()
         return config
 
     def load_user_config_from_ini(self):
@@ -206,32 +195,8 @@ class SRConfig:
                     self.user_config.get('Graph', 'height'),
                 ]
             )
-            == True
+            is True
         ), '[Graph] width and height must contain numeric values.'
-
-    def load_user_config_for_postgres(self):
-        """
-        Get user configurations from the database.
-        """
-        # Get user configurations
-        self.user_config = configparser.RawConfigParser()
-
-        # Get database configurations
-        self.db_host = self.user_config.get('PostgreSQL', 'host')
-        self.db_name = self.user_config.get('PostgreSQL', 'dbname')
-        self.db_user = self.user_config.get('PostgreSQL', 'user')
-        self.db_password = self.user_config.get('PostgreSQL', 'password')
-
-        # Set configurations
-        self.pay_source = self.user_config.get('Sources', 'pay')
-        self.pay_date = self.user_config.get('Sources', 'pay_date')
-        self.savings_source = self.user_config.get('Sources', 'savings')
-        self.savings_date = self.user_config.get('Sources', 'savings_date')
-        self.gross_income = self.user_config.get('Sources', 'gross_income')
-        self.employer_match = self.user_config.get('Sources', 'employer_match')
-        self.taxes_and_fees = self.user_config.get('Sources', 'taxes_and_fees')
-        self.savings_accounts = self.user_config.get('Sources', 'savings_accounts')
-        self.war_mode = self.user_config.getboolean('Sources', 'war')
 
     def load_account_config_from_ini(self):
         """
@@ -250,7 +215,7 @@ class SRConfig:
                 account_config = self.account_config.read(
                     self.user_conf_dir + self.test_account_ini
                 )
-            except:
+            except (TypeError):
                 raise RuntimeError(
                     'If test=True, a test .ini must be provided. You must provide a value for test_file.'
                 )
@@ -287,12 +252,6 @@ class SRConfig:
 
         # Validate the data loaded from account-config.ini
         self.validate_loaded_account_data()
-
-    def load_account_config_from_postgres(self):
-        """
-        Get configurations from a database.
-        """
-        pass
 
     def validate_account_ini(self):
         """
@@ -385,7 +344,7 @@ class SavingsRate:
             )
             raise ValueError(msg)
 
-        assert val == True, (
+        assert val is True, (
             'The '
             + spreadsheet
             + ' spreadsheet is missing a column header. '
@@ -396,33 +355,17 @@ class SavingsRate:
             + str(row)
         )
 
-    def connect_to_postgres_db(self):
+    def file_extension(self, string):
         """
-        Connects to a PostgreSQL database.
+        Gets a file extension from a string that ends in a file name.
+
+        Args:
+            string (str): File name, e.g. foobar.txt.
 
         Returns:
-            A cursor object.
+            str: File extension, e.g. .txt.
         """
-        # Don't require psycopg2 for desktop users
-        if self.config.mode == 'postgres':
-            import psycopg2
-
-        # Define our connection string
-        conn_string = "host='%s' dbname='%s' user='%s' password='%s'" % (
-            self.config.db_host,
-            self.config.db_name,
-            self.config.db_user,
-            self.config.db_password,
-        )
-
-        # Print a message
-        print("Connecting to database...")
-
-        # Get a connection, if a connect cannot be made an exception will be raised here
-        conn = psycopg2.connect(conn_string)
-
-        # conn.cursor will return a cursor object, you can use this cursor to perform queries
-        return conn.cursor()
+        return os.path.splitext(string)[1]
 
     def get_pay(self):
         """
@@ -433,52 +376,13 @@ class SavingsRate:
 
         Returns:
         """
-        if self.config.mode == 'ini':
+        ext = self.file_extension(self.config.pay_source)
+        if ext == '.csv':
             return self.load_pay_from_csv()
-        elif self.config.mode == 'postgres':
-            return self.load_pay_from_postgres()
+        elif ext == '.xlsx':
+            return self.load_pay_from_xlsx()
         else:
             raise RuntimeError('Problem loading income information!')
-
-    def load_pay_from_postgres(self):
-        """
-        Loads income data from a PostgreSQL database
-        and stores it in self.income.
-        Expects number related columns to contain
-        python Decimal objects.
-
-        Args:
-            None
-
-        Returns:
-            None
-        """
-        # Connect to the database and retrieve the needed fields
-        cursor = self.connect_to_postgres_db()
-        query = (
-            'select date, gross_pay, employer_match, taxes_and_fees '
-            'from %s where user_id = %s order by date'
-            % (self.config.pay_source, self.config.user[0])
-        )
-        cursor.execute(query)
-
-        # Loop over the info and build a datastructure
-        retval = OrderedDict()
-        count = 0
-        for date, gross_pay, employer_match, taxes_and_fees in cursor.fetchall():
-
-            date_string = date.strftime(self.config.date_format)
-            unique_id = date_string + '-' + str(count)
-            # Load the data, dictionary keys are entirely arbitrary
-            retval[unique_id] = {
-                'Date': date,
-                self.config.gross_income: self.clean_num(gross_pay),
-                self.config.employer_match: self.clean_num(employer_match),
-                self.config.taxes_and_fees: self.clean_num(taxes_and_fees),
-            }
-            count += 1
-
-        self.income = retval
 
     def clean_num(self, number):
         """
@@ -494,9 +398,9 @@ class SavingsRate:
         """
         try:
             number = number.strip()
-        except:
+        except (AttributeError):
             pass
-        if number == None or number == '':
+        if number is None or number == '':
             retval = 0.0
         elif is_number_of_some_sort(number):
             retval = number
@@ -505,38 +409,6 @@ class SavingsRate:
                 'A numeric value was expected. The argument passed was non-numeric.'
             )
         return retval
-
-    def load_savings_from_postgres(self):
-        """
-        Loads savings data from a PostgreSQL database
-        and stores it in self.savings.
-        Expects number related columns to contain
-        python Decimal objects.
-
-        Args:
-            None
-
-        Returns:
-            None
-        """
-        # Connect to the database and retrieve the needed fields
-        cursor = self.connect_to_postgres_db()
-        query = 'select date, amount ' 'from %s where user_id = %s order by date' % (
-            self.config.savings_source,
-            self.config.user[0],
-        )
-        cursor.execute(query)
-
-        # Loop over the info and build a datastructure
-        retval = OrderedDict()
-        count = 0
-        for date, amount in cursor.fetchall():
-            date_string = date.strftime(self.config.date_format)
-            unique_id = date_string + '-' + str(count)
-            # Load the data, dictionary keys are entirely arbitrary
-            retval[unique_id] = {'Date': date, self.config.savings_accounts: amount}
-            count += 1
-        self.savings = retval
 
     def load_pay_from_csv(self):
         """
@@ -562,6 +434,32 @@ class SavingsRate:
                 count += 1
             self.income = retval
 
+    def load_pay_from_xlsx(self):
+        """
+        Loads a paystub from an Excel stylesheet. Converts rows into a
+        format similar to what we get in csv.DictReader before crosswalking
+        them into the needed format.
+
+        Args:
+            None
+
+        Returns
+            None
+        """
+        retval = OrderedDict()
+        df = pd.read_excel(self.config.pay_source, dtype=str, na_filter=False)
+        self.test_columns(set(df.columns.to_list()), 'income')
+        count = 0
+        for row in df.itertuples():
+            dt_obj = parser.parse(row.__getattribute__(self.config.pay_date))
+            date = dt_obj.strftime(self.config.date_format)
+            unique_id = date + '-' + str(count)
+            columns = list(df.columns)
+            row_dict = dict(zip(columns, row[1:]))
+            retval[unique_id] = row_dict
+            count += 1
+        self.income = retval
+
     def get_savings(self):
         """
         Get savings data from designated source.
@@ -569,10 +467,11 @@ class SavingsRate:
         Args:
             None
         """
-        if self.config.mode == 'ini':
+        ext = self.file_extension(self.config.savings_source)
+        if ext == '.csv':
             return self.load_savings_from_csv()
-        elif self.config.mode == 'postgres':
-            return self.load_savings_from_postgres()
+        elif ext == '.xlsx':
+            return self.load_savings_from_xlsx()
         else:
             raise RuntimeError('Problem loading savings information!')
 
@@ -600,6 +499,32 @@ class SavingsRate:
                 count += 1
             self.savings = retval
 
+    def load_savings_from_xlsx(self):
+        """
+        Loads savings data from an Excel stylesheet. Converts rows into a
+        format similar to what we get in csv.DictReader before crosswalking
+        them into the needed format.
+
+        Args:
+            None
+
+        Returns
+            None
+        """
+        retval = OrderedDict()
+        df = pd.read_excel(self.config.savings_source, dtype=str, na_filter=False)
+        self.test_columns(set(df.columns.to_list()), 'savings')
+        count = 0
+        for row in df.itertuples():
+            dt_obj = parser.parse(row.__getattribute__(self.config.savings_date))
+            date = dt_obj.strftime(self.config.date_format)
+            unique_id = date + '-' + str(count)
+            columns = list(df.columns)
+            row_dict = dict(zip(columns, row[1:]))
+            retval[unique_id] = row_dict
+            count += 1
+        self.savings = retval
+
     def get_taxes_from_csv(self):
         """
         Get the .csv column headers used for tracking taxes and fees
@@ -612,47 +537,6 @@ class SavingsRate:
             Set of accounts used for tracking savings.
         """
         return set(self.config.user_config.get('Sources', 'taxes_and_fees').split(','))
-
-    def query_yes_no(self, question, default="yes"):
-        """
-        Ask a yes/no question via raw_input() and return the answer.
-
-        Args:
-            question: a string to be presented to the user.
-
-            default: string, the presumed answer if the user just hits <Enter>.
-            It must be "yes" (the default), "no" or None (meaning an answer is
-            required of the user).
-
-        Returns:
-            boolean, the "answer" return value is True for "yes" or False for "no".
-
-        Credit:
-            I didn't write this one. Credit for this function goes to Trent Mick:
-            https://code.activestate.com/recipes/577058/
-        """
-
-        valid = {"yes": True, "y": True, "ye": True, "no": False, "n": False}
-        if default is None:
-            prompt = " [y/n] "
-        elif default == "yes":
-            prompt = " [Y/n] "
-        elif default == "no":
-            prompt = " [y/N] "
-        else:
-            raise ValueError("invalid default answer: '%s'" % default)
-
-        while True:
-            sys.stdout.write(question + prompt)
-            choice = raw_input().lower()
-            if default is not None and choice == '':
-                return valid[default]
-            elif choice in valid:
-                return valid[choice]
-            else:
-                sys.stdout.write(
-                    "Please respond with 'yes' or 'no' " "(or 'y' or 'n').\n"
-                )
 
     def get_monthly_data(self):
         """
@@ -717,8 +601,8 @@ class SavingsRate:
             ]
 
             # Validate income spreadsheet data
-            assert are_numeric([income_gross, income_match]) == True
-            assert are_numeric(income_taxes) == True
+            assert are_numeric([income_gross, income_match]) is True
+            assert are_numeric(income_taxes) is True
 
             # If the data passes validation, convert it (strings to Decimal objects)
             gross = Decimal(income_gross)
@@ -753,7 +637,7 @@ class SavingsRate:
                         ]
 
                         # Validate savings spreadsheet data
-                        assert are_numeric(bank) == True
+                        assert are_numeric(bank) is True
 
                         # If the data passes validation, convert it (strings to Decimal objects)
                         money_in_the_bank = sum(
@@ -876,7 +760,8 @@ class Plot:
         y = []
         for data in monthly_rates:
             x.append(data[0])
-            y.append(float(data[1]))  # Must cast Decimal to float because Bokeh cannot serialize Decimals anymore
+            # Must cast Decimal to float because Bokeh cannot serialize Decimals anymore
+            y.append(float(data[1]))
 
         # Output to static HTML file
         output_file("savings-rates.html", title="Monthly Savings Rates")
@@ -905,18 +790,13 @@ class Plot:
             line_dash="4 4",
         )
 
-        # Is PostgreSQL
         # Plot the savings rate of enemies if war_mode is on
-        if self.user.config.war_mode == True:
+        if self.user.config.war_mode is True:
             for war in self.user.config.user_enemies:
                 # Enemy mode and configuration directory should always
                 # be the same as user mode and configuration directory
                 enemy_mode = self.user.config.mode
                 enemy_conf_dir = self.user.config.user_conf_dir
-
-                # Website mode
-                if enemy_mode == 'postgres':
-                    enemy_path = self.user.config.user_ini
 
                 enemy_config = SRConfig(enemy_mode, enemy_conf_dir, war[2], war[0], [])
                 enemy_savings_rate = SavingsRate(enemy_config)
@@ -944,7 +824,7 @@ class Plot:
         p.legend.location = "top_left"
 
         # Show the results
-        if embed == False:
+        if embed is False:
             # Set the width and the height
             p.height = graph_height
             p.width = graph_width

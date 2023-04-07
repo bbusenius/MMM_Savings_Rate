@@ -15,5 +15,7 @@ config/config-uzia.ini
 config/account-config.ini
 csv/income.csv
 csv/savings.csv
+csv/income.xlsx
+csv/savings.xlsx
 csv/income-uzia.csv
 csv/savings-uzia.csv

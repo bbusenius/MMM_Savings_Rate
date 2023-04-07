@@ -25,7 +25,7 @@ from savings_rate import Plot, SavingsRate, SRConfig
 
 def run():
     """
-    Run the application in, "ini" mode.
+    Run the application.
 
     Args:
         config_path: string, path to a directory of config
@@ -40,7 +40,7 @@ def run():
     config_path = inputs['p']
 
     # Instantiate a savings rate config object
-    config = SRConfig('ini', config_path, 'config.ini')
+    config = SRConfig(config_path, 'config.ini')
 
     # Instantiate a savings rate object for a user
     savings_rate = SavingsRate(config)
