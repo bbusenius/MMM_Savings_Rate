@@ -828,6 +828,7 @@ class Plot:
             # Set the width and the height
             p.height = graph_height
             p.width = graph_width
+            p.sizing_mode = "scale_both"
             show(p)
         else:
             return components(p)
