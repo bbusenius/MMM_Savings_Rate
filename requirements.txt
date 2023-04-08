@@ -3,5 +3,4 @@ git+https://github.com/bbusenius/Diablo-Python.git#egg=diablo_python
 numpy
 openpyxl
 pandas
-psycopg2
 python-dateutil

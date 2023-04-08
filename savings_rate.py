@@ -21,11 +21,13 @@
 import configparser
 import csv
 import datetime
+import json
 import os
 from collections import OrderedDict
 from decimal import Decimal
 
 import pandas as pd
+import requests
 import simple_math as sm
 from bokeh.embed import components
 from bokeh.models import DatetimeTickFormatter
@@ -99,6 +101,9 @@ class SRConfig:
         self.test_account_ini = test_file
         self.load_account_config()
 
+        self.fred_api_key = ''
+        self.fred_url = ''
+
         self.load_user_config()
 
         # Set the date format to use
@@ -167,6 +172,35 @@ class SRConfig:
         self.required_savings_columns = set([self.savings_date]).union(
             set(clean_strings(self.savings_accounts.split(',')))
         )
+        self.load_fred_url_config()
+        self.load_fred_api_key_config()
+
+    def load_fred_url_config(self):
+        """
+        Loads the config from .ini if it exists.
+        """
+        try:
+            self.fred_url = self.user_config.get('Sources', 'fred_url')
+        except (configparser.NoOptionError):
+            self.fred_url = ''
+
+    def load_fred_api_key_config(self):
+        """
+        Loads the config from .ini if it exists.
+        """
+        try:
+            self.fred_api_key = self.user_config.get('Sources', 'fred_api_key')
+        except (configparser.NoOptionError):
+            self.fred_api_key = ''
+
+    def has_fred(self):
+        """
+        Test if the needed config exists to enable FRED.
+
+        Returns:
+            bool
+        """
+        return bool(self.fred_api_key and self.fred_url)
 
     def validate_user_ini(self):
         """
@@ -691,6 +725,71 @@ class SavingsRate:
 
         return monthly_savings_rates
 
+    def get_us_average(self, monthly_rates, timeout=4):
+        """
+        Get the average monthly savings rates. The data is
+        pulled from the Federal Reserve Economic Data, FRED
+        by the Research Department at the Federal Reserve
+        Bank of St. Louis
+
+        Args:
+            monthly_rates: a list of tuples where the
+            first item in each tupal is a python date
+            object and the second item in each tuple
+            is the savings rate for that month. These
+            are the savings rates that belong to the
+            user.
+
+            timeout: float or int.
+
+        Returns:
+            A list of tuples where the first item in each
+            tupal is a python date object and the second
+            item in each tuple is the savings rate for
+            that month.
+        """
+        if self.config.has_fred():
+            start_date = monthly_rates[0:1][0][0].replace(day=1).strftime("%Y-%m-%d")
+            end_date = monthly_rates[-1:][0][0].replace(day=1).strftime("%Y-%m-%d")
+            url = self.config.fred_url
+            params = {
+                'api_key': self.config.fred_api_key,
+                'observation_start': start_date,
+                'observation_end': end_date,
+            }
+            try:
+                response = requests.get(f'{url}', params=params, timeout=timeout)
+            except (
+                requests.exceptions.MissingSchema,
+                requests.exceptions.InvalidSchema,
+            ) as e:
+                print(f'Bad url for fred_url. {str(e)}')
+                return []
+            try:
+                if response.status_code == 400 or response.status_code == 404:
+                    raise requests.exceptions.HTTPError()
+                response_json = response.json()
+            except (
+                AttributeError,
+                json.decoder.JSONDecodeError,
+                requests.exceptions.HTTPError,
+                requests.exceptions.Timeout,
+            ):
+                print('Could not retrieve a valid response from FRED.')
+                if response.text:
+                    response_txt = response.text.replace('\\', '')
+                    print(f'Bad request: {response_txt}')
+                return []
+
+            average_us_savings_rates = []
+            for row in response_json['observations']:
+                date_obj = datetime.datetime.strptime(row['date'], '%Y-%m-%d')
+                savings_rate = Decimal(row['value'])
+                monthly_rate = (date_obj, savings_rate)
+                average_us_savings_rates.append(monthly_rate)
+            return average_us_savings_rates
+        return []
+
     def average_monthly_savings_rates(self, monthly_rates):
         """
         Calculates the average monthly savings rate
@@ -777,6 +876,10 @@ class Plot:
             years='%Y', months='%b %Y', days='%b %d %Y'
         )
 
+        # Show average US savings rates if enabled.
+        if self.user.config.has_fred():
+            self.update_plot_for_fred(p, monthly_rates)
+
         # Add a line renderer with legend and line thickness
         p.line(x, y, legend_label="My savings rate", line_width=2)
         p.circle(x, y, size=6)
@@ -787,6 +890,7 @@ class Plot:
             average_rate,
             legend_label="My average rate",
             line_color="#ff6600",
+            line_width=1,
             line_dash="4 4",
         )
 
@@ -832,3 +936,19 @@ class Plot:
             show(p)
         else:
             return components(p)
+
+    def update_plot_for_fred(self, p, monthly_rates):
+        us_average_x = []
+        us_average_y = []
+        average_us_savings = self.user.get_us_average(monthly_rates)
+        for data in average_us_savings:
+            us_average_x.append(data[0])
+            us_average_y.append(float(data[1]))
+        p.line(
+            us_average_x,
+            us_average_y,
+            legend_label="Average US savings",
+            line_color="#9467bd",
+            line_width=2,
+            line_dash="4 4",
+        )

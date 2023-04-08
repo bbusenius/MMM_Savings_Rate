@@ -4,7 +4,7 @@ This application is a command-line utility that allows users to calculate and tr
 
 ![Example savings rates plotted](https://github.com/bbusenius/MMM_Savings_Rate/raw/master/docs/screenshot.png)
 
-Additionally, users may supply secondary, "enemy" spreadsheets. This feature is provided in order to make the experience fun, game-like, and competitive for those who prefer such an experience. If an enemy spreadsheet is provided, the enemy savings rates are plotted alongside those of the user. This feature might be used by spouses who wish to compete with each other, for example.
+Additionally, users may supply secondary, "enemy" spreadsheets. This feature is provided to make the experience fun, game-like, and competitive for those who prefer such an experience. If an enemy spreadsheet is provided, the enemy savings rates are plotted alongside those of the user. This feature could be used by spouses who wish to compete with each other.
 
 *MMM_Savings_Rate was inspired by Mr. Money Mustache. Visit the Mr. Money Mustache website and [read this article to learn more](http://www.mrmoneymustache.com/2012/01/13/the-shockingly-simple-math-behind-early-retirement).*
 
@@ -80,7 +80,9 @@ The config.ini file is the second configuration file. This file is required. It 
 
 [Please look at this example](https://github.com/bbusenius/MMM_Savings_Rate/blob/master/config/config-example.ini).
 
-The majority of what's here is listed under [Sources]. Settings include:
+##### Main settings
+
+The majority of the main settings are listed under `[Sources]`. Settings include:
 
 - **pay** - a full path to your income spreadsheet.
 - **pay_date** - the name of a column header for the dates of income or pay transactions.
@@ -92,7 +94,24 @@ The majority of what's here is listed under [Sources]. Settings include:
 - **savings_accounts** - the names of column headers in your spreadsheet that contain savings data from an account or accounts.
 - **war** - allows you to show or hide, "enemy" plots on your graph. Set this to, "off" if you only want to see your own data.
 
-Settings under [Graph] allow you to change the size of the plot that's generated.
+##### Graph settings
+
+Settings under `[Graph]` allow you to change the size of the plot that's generated.
+
+##### Additional settings
+
+Optional settings allow you to plot the average US savings rates alongside your own. This data comes from the Federal Reserve Economic Data (FRED), the Research division of the Federal Reserve Bank of St. Louis.
+
+- **fred_url** - the url of the FRED API endpoint.
+- **fred_api_key** - an API token to use FRED.
+
+In order to use these settings, you will need to signup for an account with FRED and request an API token. This takes about 5 minutes and [can be done on their website](https://fred.stlouisfed.org/docs/api/api_key.html).
+
+Once you enable FRED, you will be able to see how your savings rates dominate the US average*.
+
+![Example savings rates plotted](https://github.com/bbusenius/MMM_Savings_Rate/raw/master/docs/FRED.png)
+
+*US average savings rates calculated by FRED are generated after removing outlays from personal income. Since outlays include purchases of durable and non-durable goods, these savings rates are inflated. Even so, as a Mustachian you will easily beat these averages. 
 
 ### Running the simulation
 
@@ -104,4 +123,11 @@ savingsrates -p /home/joeconsumer/Documents/Code/Projects/MMM_Savings_Rate/confi
 The -p flag should specify the full path to your directory of config files. When you run the command a plot of your monthly savings rates should open in a browser window.
 
 ## Requirements
+
 This utility runs on python 3.x. All additional dependencies should be automatically downloaded and included during installation. If you'd like to see all of what will be installed look at [setup.py](https://github.com/bbusenius/MMM_Savings_Rate/blob/master/setup.py) or [requirements.txt](https://github.com/bbusenius/MMM_Savings_Rate/blob/master/requirements.txt).
+
+## Running tests
+
+```
+python3 -m unittest discover tests -p 'test_*.py'
+```

@@ -33,9 +33,11 @@ setup(
     install_requires=[
         'bokeh',
         'diablo-python',
+        'json',
         'openpyxl',
         'pandas',
         'python-dateutil',
+        'requests',
     ],
     test_suite='tests',
     long_description=LONG_DESCRIPTION,

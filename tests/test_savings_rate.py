@@ -1,11 +1,14 @@
+import datetime
 import unittest
 from collections import OrderedDict
 from decimal import Decimal
+from unittest import mock
 
+import requests
 from savings_rate import SavingsRate, SRConfig
 
 
-class test_savings_rate(unittest.TestCase):
+class TestSavingsRate(unittest.TestCase):
     """
     Tests for individual methods.
     """
@@ -344,3 +347,95 @@ class test_savings_rate(unittest.TestCase):
         self.assertEqual(
             average_rates, Decimal(25.0), 'Wrong average for monthly rates.'
         )
+
+
+class TestFRED(unittest.TestCase):
+    def setUp(self):
+        self.config = SRConfig('tests/test_config/', 'config-test.ini')
+        self.sr = SavingsRate(self.config)
+        self.monthly_rates = [
+            (datetime.date(2021, 1, 1), Decimal('5.1')),
+            (datetime.date(2021, 2, 1), Decimal('6.2')),
+            (datetime.date(2021, 3, 1), Decimal('4.7')),
+        ]
+
+    @mock.patch('savings_rate.requests.get')
+    def test_get_us_average(self, mock_get):
+        # Mock response from FRED API
+        response_json = {
+            'observations': [
+                {'date': '2021-01-01', 'value': '3.4'},
+                {'date': '2021-02-01', 'value': '4.2'},
+                {'date': '2021-03-01', 'value': '2.7'},
+            ]
+        }
+        mock_get.return_value.json.return_value = response_json
+
+        # Alter the instance of SRConfig to have the expected settings
+        self.config.fred_url = 'https://api.fred.org'
+        self.config.fred_api_key = 'my_api_key'
+
+        my_instance = self.sr
+
+        # Call the function
+        result = my_instance.get_us_average(self.monthly_rates)
+
+        # Assert expected output
+        expected_result = [
+            (datetime.datetime(2021, 1, 1, 0, 0), Decimal('3.4')),
+            (datetime.datetime(2021, 2, 1, 0, 0), Decimal('4.2')),
+            (datetime.datetime(2021, 3, 1, 0, 0), Decimal('2.7')),
+        ]
+        self.assertEqual(result, expected_result)
+
+    @mock.patch('savings_rate.requests.get')
+    def test_missing_fred_config(self, mock_get):
+        # Bad config
+        self.config.fred_url = ''
+        self.config.fred_api_key = None
+        my_instance = self.sr
+        result = my_instance.get_us_average(self.monthly_rates)
+        self.assertEqual(result, [])
+
+    @mock.patch('savings_rate.requests.get')
+    def test_shorter_response_from_fred_still_works(self, mock_get):
+        response_json = {
+            'observations': [
+                {'date': '2021-01-01', 'value': '3.4'},
+                {'date': '2021-02-01', 'value': '4.2'},
+            ]
+        }
+        mock_get.return_value.json.return_value = response_json
+
+        self.config.fred_url = 'https://api.fred.org'
+        self.config.fred_api_key = 'my_api_key'
+
+        # Call the function
+        result = self.sr.get_us_average(self.monthly_rates)
+
+        # Assert expected output
+        expected_result = [
+            (datetime.datetime(2021, 1, 1, 0, 0), Decimal('3.4')),
+            (datetime.datetime(2021, 2, 1, 0, 0), Decimal('4.2')),
+        ]
+        self.assertEqual(len(result), 2)
+        self.assertEqual(len(self.monthly_rates), 3)
+        self.assertEqual(result, expected_result)
+
+    def test_message_printed_and_result_is_empty_list_during_fred_timeout(self):
+        mock_response = mock.Mock()
+        mock_response.json.side_effect = requests.exceptions.Timeout
+        mock_get = mock.Mock(return_value=mock_response)
+        self.config.fred_url = 'https://api.fred.org'
+        self.config.fred_api_key = 'my_api_key'
+        with mock.patch('requests.get', mock_get):
+            with mock.patch('builtins.print') as mock_print:
+                # Call the function with a very short timeout to force a Timeout exception
+                result = self.sr.get_us_average(self.monthly_rates, 0.00001)
+                self.assertEqual(result, [])
+                assert mock_print.call_count == 2
+                # Can't use mock_print.assert_called_once_with because there are two
+                # print statments
+                mock_print.call_args_list[0][0][
+                    0
+                ] == 'Could not retrieve a valid response from FRED.'

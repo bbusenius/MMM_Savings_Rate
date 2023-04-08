@@ -4,6 +4,7 @@ import unittest
 from savings_rate import (
     REQUIRED_INI_ACCOUNT_OPTIONS,
     REQUIRED_INI_USER_OPTIONS,
+    SavingsRate,
     SRConfig,
 )
 
@@ -20,9 +21,9 @@ def return_bad_config():
     )
 
 
-class test_srconfig(unittest.TestCase):
+class TestSRConfigIni(unittest.TestCase):
     """
-    Test the SRConfig class.
+    Test the SRConfig class with .ini files.
     """
 
     def test_load_account_config_without_ini(self):
@@ -143,3 +144,27 @@ class test_srconfig(unittest.TestCase):
                 config = SRConfig('tests/test_config/', 'config-test.ini')
                 config.user_config.remove_option(section, option)
                 self.assertRaises(AssertionError, config.validate_user_ini)
+
+
+class TestFREDConfig(unittest.TestCase):
+    def setUp(self):
+        self.config = SRConfig('tests/test_config/', 'config-test.ini')
+        self.sr = SavingsRate(self.config)
+        self.config_no_fred = SRConfig('tests/test_config/', 'config-missing-fred.ini')
+        self.sr_no_fred = SavingsRate(self.config_no_fred)
+
+    def test_load_fred_config(self):
+        self.sr.config.load_fred_url_config()
+        self.sr.config.load_fred_api_key_config()
+        has_fred = self.sr.config.has_fred()
+        self.assertEqual(self.sr.config.fred_url, 'https://fred-test.com')
+        self.assertEqual(self.sr.config.fred_api_key, 'test-api-key')
+        self.assertEqual(has_fred, True)
+
+    def test_load_fred_with_no_fred_settings(self):
+        self.sr_no_fred.config.load_fred_url_config()
+        self.sr_no_fred.config.load_fred_api_key_config()
+        has_fred = self.sr_no_fred.config.has_fred()
+        self.assertEqual(self.sr_no_fred.config.fred_url, '')
+        self.assertEqual(self.sr_no_fred.config.fred_api_key, '')
+        self.assertEqual(has_fred, False)
