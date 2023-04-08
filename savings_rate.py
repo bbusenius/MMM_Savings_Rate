@@ -749,8 +749,16 @@ class SavingsRate:
             that month.
         """
         if self.config.has_fred():
-            start_date = monthly_rates[0:1][0][0].replace(day=1).strftime("%Y-%m-%d")
-            end_date = monthly_rates[-1:][0][0].replace(day=1).strftime("%Y-%m-%d")
+            start_date = (
+                monthly_rates[0:1][0][0]
+                .replace(day=1)
+                .strftime(self.config.date_format)
+            )
+            end_date = (
+                monthly_rates[-1:][0][0]
+                .replace(day=1)
+                .strftime(self.config.date_format)
+            )
             url = self.config.fred_url
             params = {
                 'api_key': self.config.fred_api_key,
@@ -783,7 +791,9 @@ class SavingsRate:
 
             average_us_savings_rates = []
             for row in response_json['observations']:
-                date_obj = datetime.datetime.strptime(row['date'], '%Y-%m-%d')
+                date_obj = datetime.datetime.strptime(
+                    row['date'], self.config.date_format
+                )
                 savings_rate = Decimal(row['value'])
                 monthly_rate = (date_obj, savings_rate)
                 average_us_savings_rates.append(monthly_rate)
