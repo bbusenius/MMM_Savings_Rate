@@ -32,7 +32,6 @@ setup(
     include_package_data=True,
     install_requires=[
         'bokeh',
-        'diablo-python',
         'json',
         'openpyxl',
         'pandas',
