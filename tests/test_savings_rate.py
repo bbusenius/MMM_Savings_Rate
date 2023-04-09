@@ -16,6 +16,7 @@ class TestSavingsRate(unittest.TestCase):
     def setUp(self):
         self.config = SRConfig('tests/test_config/', 'config-test.ini')
         self.config_xlsx = SRConfig('tests/test_config/', 'config-test-xlsx.ini')
+        self.sr = SavingsRate(self.config)
 
     def test_clean_num(self):
         sr = SavingsRate(self.config)
@@ -47,16 +48,6 @@ class TestSavingsRate(unittest.TestCase):
         self.assertEqual(
             val6, Decimal(4.4)
         ), '4.4 should evaluate to Decimal(4.4). It evaluated to ' + str(val6)
-
-    def test_file_extension(self):
-        sr = SavingsRate(self.config)
-        val1 = sr.file_extension('test.txt')
-        val2 = sr.file_extension('/this/is/just/a/test.csv')
-        val3 = sr.file_extension('')
-
-        self.assertEqual(val1, '.txt')
-        self.assertEqual(val2, '.csv')
-        self.assertEqual(val3, '')
 
     def test_spreadsheet_with_misconfigured_income_columns(self):
         """
@@ -184,7 +175,7 @@ class TestSavingsRate(unittest.TestCase):
         )
         sr = SavingsRate(config)
 
-    def test_get_taxes_from_csv(self):
+    def test_get_tax_headers_for_parsing(self):
         """
         There should be as many items as commas in
         the config +1.
@@ -193,7 +184,7 @@ class TestSavingsRate(unittest.TestCase):
         commas_in_config = self.config.user_config.get(
             'Sources', 'taxes_and_fees'
         ).count(',')
-        self.assertEqual(len(sr.get_taxes_from_csv()), commas_in_config + 1)
+        self.assertEqual(len(sr.get_tax_headers_for_parsing()), commas_in_config + 1)
 
     def test_get_monthly_savings_rates_50_50(self):
         """
@@ -347,6 +338,16 @@ class TestSavingsRate(unittest.TestCase):
         self.assertEqual(
             average_rates, Decimal(25.0), 'Wrong average for monthly rates.'
         )
+
+    def test_unique_id_from_date(self):
+        result = self.sr.unique_id_from_date('2022-04-05', 1)
+        self.assertEqual(result, ('2022-04-05-1', '2022-04-05'))
+
+        result = self.sr.unique_id_from_date('2022-05-01', 2)
+        self.assertEqual(result, ('2022-05-01-2', '2022-05-01'))
+
+        result = self.sr.unique_id_from_date('2022-12-31', 3)
+        self.assertEqual(result, ('2022-12-31-3', '2022-12-31'))
 
 
 class TestFRED(unittest.TestCase):

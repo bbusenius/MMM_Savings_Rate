@@ -111,7 +111,13 @@ Once you enable FRED, you will be able to see how your savings rates dominate th
 
 ![Example savings rates plotted](https://github.com/bbusenius/MMM_Savings_Rate/raw/master/docs/FRED.png)
 
-*US average savings rates calculated by FRED are generated after removing outlays from personal income. Since outlays include purchases of durable and non-durable goods, these savings rates are inflated. Even so, as a Mustachian you will easily beat these averages. 
+*US average savings rates calculated by FRED are generated after removing outlays from personal income. Since outlays include purchases of durable and non-durable goods, these savings rates are inflated. Even so, as a Mustachian you will easily beat these averages.
+
+If you want to annotate points on your plot with text from your spreadsheet, you can map a `notes` field. This should match a column header on your spreadsheet. If you're using separate spreadsheets for savings and income, the application will look for the same column name in both spreadsheets and de-dupe duplicate notes for the same month while displaying all notes from both spreadsheets for the same month it they're unique.
+
+- **notes** - the name of a column header that maps to notes or special events that you want to show on your plot.
+
+![Example savings rates plotted](https://github.com/bbusenius/MMM_Savings_Rate/raw/master/docs/notes.png)
 
 ### Running the simulation
 

@@ -26,12 +26,20 @@ class TestSRConfigIni(unittest.TestCase):
     Test the SRConfig class with .ini files.
     """
 
+    def setUp(self):
+        self.config = SRConfig('tests/test_config/', 'config-test.ini')
+        self.sr = SavingsRate(self.config)
+        self.config_no_notes = SRConfig(
+            'tests/test_config/', 'config-no-fred-no-notes.ini'
+        )
+        self.sr_no_notes = SavingsRate(self.config_no_notes)
+
     def test_load_account_config_without_ini(self):
         """
         Test the loading of account_config.ini.
         """
         # Load the config
-        config = SRConfig('tests/test_config/', 'config-test.ini')
+        config = self.config
 
         # Unset the conf_dir path so the account_config.ini won't be found
         config.user_conf_dir = ''
@@ -42,7 +50,7 @@ class TestSRConfigIni(unittest.TestCase):
         """
         Load an account config without the required [Users] section.
         """
-        config = SRConfig('tests/test_config/', 'config-test.ini')
+        config = self.config
         config.account_config.remove_section('Users')
         self.assertRaises(
             configparser.NoSectionError, config.account_config.get, 'Users', 'self'
@@ -52,7 +60,7 @@ class TestSRConfigIni(unittest.TestCase):
         """
         Load a config option without the required "self" option.
         """
-        config = SRConfig('tests/test_config/', 'config-test.ini')
+        config = self.config
         config.account_config.remove_option('Users', 'self')
         self.assertRaises(
             configparser.NoOptionError, config.account_config.get, 'Users', 'self'
@@ -64,7 +72,7 @@ class TestSRConfigIni(unittest.TestCase):
         should throw an assertion error.
         """
         for section in REQUIRED_INI_ACCOUNT_OPTIONS:
-            config = SRConfig('tests/test_config/', 'config-test.ini')
+            config = self.config
             config.account_config.remove_section(section)
             self.assertRaises(AssertionError, config.validate_account_ini)
 
@@ -75,7 +83,7 @@ class TestSRConfigIni(unittest.TestCase):
         """
         for section in REQUIRED_INI_ACCOUNT_OPTIONS:
             for option in REQUIRED_INI_ACCOUNT_OPTIONS[section]:
-                config = SRConfig('tests/test_config/', 'config-test.ini')
+                config = self.config
                 config.account_config.remove_option(section, option)
                 self.assertRaises(AssertionError, config.validate_account_ini)
 
@@ -83,7 +91,7 @@ class TestSRConfigIni(unittest.TestCase):
         """
         Load a good account-config.ini.
         """
-        config = SRConfig('tests/test_config/', 'config-test.ini')
+        config = self.config
 
         self.assertEqual(
             len(config.user),
@@ -130,7 +138,7 @@ class TestSRConfigIni(unittest.TestCase):
         should throw an assertion error.
         """
         for section in REQUIRED_INI_USER_OPTIONS:
-            config = SRConfig('tests/test_config/', 'config-test.ini')
+            config = self.config
             config.user_config.remove_section(section)
             self.assertRaises(AssertionError, config.validate_user_ini)
 
@@ -141,16 +149,33 @@ class TestSRConfigIni(unittest.TestCase):
         """
         for section in REQUIRED_INI_USER_OPTIONS:
             for option in REQUIRED_INI_USER_OPTIONS[section]:
-                config = SRConfig('tests/test_config/', 'config-test.ini')
+                config = self.config
                 config.user_config.remove_option(section, option)
                 self.assertRaises(AssertionError, config.validate_user_ini)
+
+    def test_file_extension(self):
+        val1 = self.sr.config.file_extension('test.txt')
+        val2 = self.sr.config.file_extension('/this/is/just/a/test.csv')
+        val3 = self.sr.config.file_extension('')
+
+        self.assertEqual(val1, '.txt')
+        self.assertEqual(val2, '.csv')
+        self.assertEqual(val3, '')
+
+    def test_load_notes_config(self):
+        self.config.load_notes_config()
+        self.assertEqual(self.sr.config.notes, 'My Notes')
+        self.config_no_notes.load_notes_config()
+        self.assertEqual(self.sr_no_notes.config.notes, '')
 
 
 class TestFREDConfig(unittest.TestCase):
     def setUp(self):
         self.config = SRConfig('tests/test_config/', 'config-test.ini')
         self.sr = SavingsRate(self.config)
-        self.config_no_fred = SRConfig('tests/test_config/', 'config-missing-fred.ini')
+        self.config_no_fred = SRConfig(
+            'tests/test_config/', 'config-no-fred-no-notes.ini'
+        )
         self.sr_no_fred = SavingsRate(self.config_no_fred)
 
     def test_load_fred_config(self):

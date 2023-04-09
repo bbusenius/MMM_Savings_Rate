@@ -103,6 +103,7 @@ class SRConfig:
 
         self.fred_api_key = ''
         self.fred_url = ''
+        self.notes = ''
 
         self.load_user_config()
 
@@ -142,18 +143,16 @@ class SRConfig:
         # Validate the configparser config object
         self.validate_user_ini()
 
-        # Source of savings data (.csv)
+        # Source of and file type of savings data (.xlsx of .csv)
         self.savings_source = self.user_config.get('Sources', 'savings')
+        self.savings_source_type = self.file_extension(self.savings_source)
 
-        # Source of income data
+        # Source and file type of income data (.xlsx of .csv)
         self.pay_source = self.user_config.get('Sources', 'pay')
+        self.pay_source_type = self.file_extension(self.pay_source)
 
         # Set war mode
         self.war_mode = self.user_config.getboolean('Sources', 'war')
-
-        # Savings and income sources
-        self.pay_source = self.user_config.get('Sources', 'pay')
-        self.savings_source = self.user_config.get('Sources', 'savings')
 
         # Other spreadsheet columns we care about
         self.gross_income = self.user_config.get('Sources', 'gross_income')
@@ -174,6 +173,16 @@ class SRConfig:
         )
         self.load_fred_url_config()
         self.load_fred_api_key_config()
+        self.load_notes_config()
+
+    def load_notes_config(self):
+        """
+        Loads the notes confit from an .ini if it exists.
+        """
+        try:
+            self.notes = self.user_config.get('Sources', 'notes')
+        except (configparser.NoOptionError):
+            self.notes = ''
 
     def load_fred_url_config(self):
         """
@@ -324,6 +333,18 @@ class SRConfig:
                 i += 1
             assert len(user_ids) == i, 'Every user ID must be unique.'
 
+    def file_extension(self, string):
+        """
+        Gets a file extension from a string that ends in a file name.
+
+        Args:
+            string (str): File name, e.g. foobar.txt.
+
+        Returns:
+            str: File extension, e.g. .txt.
+        """
+        return os.path.splitext(string)[1]
+
 
 class SavingsRate:
     """
@@ -389,18 +410,6 @@ class SavingsRate:
             + str(row)
         )
 
-    def file_extension(self, string):
-        """
-        Gets a file extension from a string that ends in a file name.
-
-        Args:
-            string (str): File name, e.g. foobar.txt.
-
-        Returns:
-            str: File extension, e.g. .txt.
-        """
-        return os.path.splitext(string)[1]
-
     def get_pay(self):
         """
         Loads payment data from a .csv fle.
@@ -410,7 +419,7 @@ class SavingsRate:
 
         Returns:
         """
-        ext = self.file_extension(self.config.pay_source)
+        ext = self.config.pay_source_type
         if ext == '.csv':
             return self.load_pay_from_csv()
         elif ext == '.xlsx':
@@ -461,9 +470,8 @@ class SavingsRate:
             for row in reader:
                 # Make sure required columns are in the spreadsheet
                 self.test_columns(set(row.keys()), 'income')
-                dt_obj = parser.parse(row[self.config.pay_date])
-                date = dt_obj.strftime(self.config.date_format)
-                unique_id = date + '-' + str(count)
+                date_string = row[self.config.pay_date]
+                unique_id = self.unique_id_from_date(date_string, count)[0]
                 retval[unique_id] = row
                 count += 1
             self.income = retval
@@ -485,9 +493,8 @@ class SavingsRate:
         self.test_columns(set(df.columns.to_list()), 'income')
         count = 0
         for row in df.itertuples():
-            dt_obj = parser.parse(row.__getattribute__(self.config.pay_date))
-            date = dt_obj.strftime(self.config.date_format)
-            unique_id = date + '-' + str(count)
+            date_string = row.__getattribute__(self.config.pay_date)
+            unique_id = self.unique_id_from_date(date_string, count)[0]
             columns = list(df.columns)
             row_dict = dict(zip(columns, row[1:]))
             retval[unique_id] = row_dict
@@ -501,7 +508,7 @@ class SavingsRate:
         Args:
             None
         """
-        ext = self.file_extension(self.config.savings_source)
+        ext = self.config.pay_source_type
         if ext == '.csv':
             return self.load_savings_from_csv()
         elif ext == '.xlsx':
@@ -526,12 +533,31 @@ class SavingsRate:
             for row in reader:
                 # Make sure required columns are in the spreadsheet
                 self.test_columns(set(row.keys()), 'savings')
-                dt_obj = parser.parse(row[self.config.savings_date])
-                date = dt_obj.strftime(self.config.date_format)
-                unique_id = date + '-' + str(count)
+                date_string = row[self.config.savings_date]
+                unique_id = self.unique_id_from_date(date_string, count)[0]
                 retval[unique_id] = row
                 count += 1
             self.savings = retval
+
+    def unique_id_from_date(self, date_string, count):
+        """
+        Dates are important when calculating monthly savings rates.
+        This function formats the date and generates a unique id. Both
+        of these are used to keep track of and organize savings and
+        income related data.
+
+        Args:
+            date_string: date string.
+            count: int
+
+        Returns:
+            tuple(str, str): where the first item is a unique id and the
+            second item is a date string.
+        """
+        dt_obj = parser.parse(date_string)
+        date = dt_obj.strftime(self.config.date_format)
+        unique_id = date + '-' + str(count)
+        return (unique_id, date)
 
     def load_savings_from_xlsx(self):
         """
@@ -545,21 +571,20 @@ class SavingsRate:
         Returns
             None
         """
-        retval = OrderedDict()
+        sdata = OrderedDict()
         df = pd.read_excel(self.config.savings_source, dtype=str, na_filter=False)
         self.test_columns(set(df.columns.to_list()), 'savings')
         count = 0
         for row in df.itertuples():
-            dt_obj = parser.parse(row.__getattribute__(self.config.savings_date))
-            date = dt_obj.strftime(self.config.date_format)
-            unique_id = date + '-' + str(count)
+            date_string = row.__getattribute__(self.config.savings_date)
+            unique_id = self.unique_id_from_date(date_string, count)[0]
             columns = list(df.columns)
             row_dict = dict(zip(columns, row[1:]))
-            retval[unique_id] = row_dict
+            sdata[unique_id] = row_dict
             count += 1
-        self.savings = retval
+        self.savings = sdata
 
-    def get_taxes_from_csv(self):
+    def get_tax_headers_for_parsing(self):
         """
         Get the .csv column headers used for tracking taxes and fees
         in the income related spreadsheet.
@@ -584,15 +609,15 @@ class SavingsRate:
             OrderedDict
 
         Example return data:
-
-            OrderedDict({'2015-01' : {'income' : [Decimal(3500.0)],
-                                      'employer_match' : [Decimal(120.0)],
-                                      'taxes_and_fees' : [Decimal(450.0)],
-                                      'savings' : [Decimal(1000.0)]},
-                         '2015-02' : {'income' : [Decimal(3500.0)],
-                                      'employer_match' : [Decimal(120.0)],
-                                      'taxes_and_fees' : [Decimal(450.0)],
-                                      'savings' : [Decimal(800.0)]}})
+            OrderedDict([('2015-02', {'income': [Decimal('4833.34')],
+                                      'employer_match': [Decimal('120.84')],
+                                      'taxes_and_fees': [Decimal('814.70')],
+                                      'notes': {''},
+                                      'savings': [Decimal('1265.85')]}),
+                         ('2015-03', {'income': [Decimal('4833.34')],
+                                      'employer_match': [Decimal('120.84')],
+                                      'taxes_and_fees': [Decimal('814.70')],
+                                      'notes': {''}, 'savings': [Decimal('1115.85')]}),
         """
         income = self.income.copy()
         savings = self.savings.copy()
@@ -601,7 +626,7 @@ class SavingsRate:
         date_format = '%Y-%m'
 
         # Column headers used for tracking taxes and fees
-        taxes = self.get_taxes_from_csv()
+        taxes = self.get_tax_headers_for_parsing()
 
         # Dataset to return
         sr = OrderedDict()
@@ -653,6 +678,10 @@ class SavingsRate:
             sr[pay_month].setdefault('employer_match', []).append(employer_match)
             sr[pay_month].setdefault('taxes_and_fees', []).append(taxes)
 
+            # Add an income note if there is one
+            inote = income[payout][self.config.notes]
+            sr[pay_month].setdefault('notes', set()).add(inote)
+
             if 'savings' not in sr[pay_month]:
                 for transfer in savings:
                     tran_date_string = str(savings[transfer][self.config.savings_date])
@@ -683,22 +712,24 @@ class SavingsRate:
                             money_in_the_bank
                         )
 
+                        # Add a savings note if there is one
+                        snote = savings[transfer][self.config.notes]
+                        sr[pay_month].setdefault('notes', set()).add(snote)
         return sr
 
     def get_monthly_savings_rates(self, test_data=False):
         """
-        Calculates the monthly savings rates over
-        a period of time.
+        Calculates the monthly savings rates over a period of time.
 
         Args:
-            test_data: OrderedDict or boolean, for
-            passing in test data. Defaults to false.
+            test_data: OrderedDict or boolean, for passing in test data.
+            Defaults to false.
 
         Returns:
-            A list of tuples where the first item
-            in each tupal is a python date object
-            and the second item in each tuple is
-            the savings rate for that month.
+            list: a list of tuples where each tuple contains:
+                - datetime object: python date object.
+                - Decimal: The savings rate for the month.
+                - str: Optional note or event.
         """
         if not test_data:
             monthly_data = self.get_monthly_data()
@@ -718,10 +749,14 @@ class SavingsRate:
                 if 'savings' in monthly_data[month]
                 else 0
             )
+            try:
+                note = monthly_data[month]['notes']
+            except (KeyError):
+                note = ''
             spending = pay - savings
             srate = sm.savings_rate(pay, spending, 'decimal')
             date = datetime.datetime.strptime(month, '%Y-%m')
-            monthly_savings_rates.append((date, srate))
+            monthly_savings_rates.append((date, srate, note))
 
         return monthly_savings_rates
 
@@ -867,10 +902,19 @@ class Plot:
         # Prepare the data
         x = []
         y = []
-        for data in monthly_rates:
+        notes = []
+        y_offset = []
+        for i, data in enumerate(monthly_rates):
             x.append(data[0])
             # Must cast Decimal to float because Bokeh cannot serialize Decimals anymore
             y.append(float(data[1]))
+            # Only separate notes with a line break if there are more than one and they aren't empty
+            notes.append('\n'.join(data[2]).strip('\n'))
+            # Display text below the point if it's a drop for a better chance at good formatting
+            if data[1] < monthly_rates[i - 1][1]:
+                y_offset.append(25)
+            else:
+                y_offset.append(-5)
 
         # Output to static HTML file
         output_file("savings-rates.html", title="Monthly Savings Rates")
@@ -902,6 +946,14 @@ class Plot:
             line_color="#ff6600",
             line_width=1,
             line_dash="4 4",
+        )
+        p.text(
+            x=x,
+            y=y,
+            text=notes,
+            text_color="#333333",
+            text_align="center",
+            y_offset=y_offset,
         )
 
         # Plot the savings rate of enemies if war_mode is on
