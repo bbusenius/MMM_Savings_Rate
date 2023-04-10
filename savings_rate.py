@@ -24,11 +24,11 @@ import datetime
 import json
 import os
 from collections import OrderedDict
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
+import fi
 import pandas as pd
 import requests
-import simple_math as sm
 from bokeh.embed import components
 from bokeh.models import DatetimeTickFormatter
 from bokeh.plotting import figure, output_file, show
@@ -738,11 +738,10 @@ class SavingsRate:
 
         monthly_savings_rates = []
         for month in monthly_data:
-            pay = sm.take_home_pay(
+            pay = fi.take_home_pay(
                 sum(monthly_data[month]['income']),
                 sum(monthly_data[month]['employer_match']),
                 monthly_data[month]['taxes_and_fees'],
-                'decimal',
             )
             savings = (
                 sum(monthly_data[month]['savings'])
@@ -754,7 +753,10 @@ class SavingsRate:
             except (KeyError):
                 note = ''
             spending = pay - savings
-            srate = sm.savings_rate(pay, spending, 'decimal')
+            try:
+                srate = fi.savings_rate(pay, spending)
+            except (InvalidOperation):
+                srate = Decimal(0)
             date = datetime.datetime.strptime(month, '%Y-%m')
             monthly_savings_rates.append((date, srate, note))
 
@@ -849,7 +851,8 @@ class SavingsRate:
         Returns:
             float
         """
-        return sm.average([rate[1] for rate in monthly_rates], 'decimal')
+        nums = [rate[1] for rate in monthly_rates]
+        return float(Decimal(sum(nums)) / len(nums))
 
 
 class Plot:

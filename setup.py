@@ -32,7 +32,8 @@ setup(
     include_package_data=True,
     install_requires=[
         'bokeh',
-        'json',
+        'diablo_python @ git+https://github.com/bbusenius/Diablo-Python.git#egg=diablo_python',
+        'fi @ git+https://github.com/bbusenius/FI.git#egg=FI',
         'openpyxl',
         'pandas',
         'python-dateutil',
