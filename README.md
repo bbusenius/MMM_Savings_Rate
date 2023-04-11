@@ -92,6 +92,7 @@ The majority of the main settings are listed under `[Sources]`. Settings include
 - **employer_match** - the name of a column header in your spreadsheet that represents your employer match.
 - **taxes_and_fees** - the names of column headers in your spreadsheet that contain taxes and fees.
 - **savings_accounts** - the names of column headers in your spreadsheet that contain savings data from an account or accounts.
+- **goal** - optional setting that allows you to set a savings rate goal you're trying to reach.
 - **war** - allows you to show or hide, "enemy" plots on your graph. Set this to, "off" if you only want to see your own data.
 
 ##### Graph settings

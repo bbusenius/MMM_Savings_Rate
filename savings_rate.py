@@ -104,6 +104,7 @@ class SRConfig:
         self.fred_api_key = ''
         self.fred_url = ''
         self.notes = ''
+        self.goal = False
 
         self.load_user_config()
 
@@ -174,6 +175,7 @@ class SRConfig:
         self.load_fred_url_config()
         self.load_fred_api_key_config()
         self.load_notes_config()
+        self.load_goal_config()
 
     def load_notes_config(self):
         """
@@ -210,6 +212,25 @@ class SRConfig:
             bool
         """
         return bool(self.fred_api_key and self.fred_url)
+
+    def load_goal_config(self):
+        """
+        Savings rate goal the user is trying to hit.
+
+        Args:
+            None
+
+        Returns:
+            None
+        """
+        try:
+            goal = self.user_config.get('Sources', 'goal')
+            try:
+                self.goal = float(goal)
+            except (ValueError):
+                print('The value for \'goal\' should be numeric, e.g. 65.')
+        except (configparser.NoOptionError):
+            self.goal = False
 
     def validate_user_ini(self):
         """
@@ -947,9 +968,12 @@ class Plot:
             average_rate,
             legend_label="My average rate",
             line_color="#ff6600",
-            line_width=1,
+            line_width=2,
             line_dash="4 4",
+            line_alpha=0.8,
         )
+
+        # Text annotations
         p.text(
             x=x,
             y=y,
@@ -958,6 +982,17 @@ class Plot:
             text_align="center",
             y_offset=y_offset,
         )
+
+        # Goal
+        if self.user.config.goal:
+            p.line(
+                x,
+                self.user.config.goal,
+                legend_label="Goal",
+                line_color="#01D423",
+                line_width=2,
+                line_dash="4 4",
+            )
 
         # Plot the savings rate of enemies if war_mode is on
         if self.user.config.war_mode is True:

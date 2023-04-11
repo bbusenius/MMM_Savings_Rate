@@ -1,5 +1,6 @@
 import configparser
 import unittest
+from unittest import mock
 
 from savings_rate import (
     REQUIRED_INI_ACCOUNT_OPTIONS,
@@ -29,10 +30,10 @@ class TestSRConfigIni(unittest.TestCase):
     def setUp(self):
         self.config = SRConfig('tests/test_config/', 'config-test.ini')
         self.sr = SavingsRate(self.config)
-        self.config_no_notes = SRConfig(
-            'tests/test_config/', 'config-no-fred-no-notes.ini'
+        self.config_missing = SRConfig(
+            'tests/test_config/', 'config-missing-values.ini'
         )
-        self.sr_no_notes = SavingsRate(self.config_no_notes)
+        self.sr_missing_config = SavingsRate(self.config_missing)
 
     def test_load_account_config_without_ini(self):
         """
@@ -165,18 +166,32 @@ class TestSRConfigIni(unittest.TestCase):
     def test_load_notes_config(self):
         self.config.load_notes_config()
         self.assertEqual(self.sr.config.notes, 'My Notes')
-        self.config_no_notes.load_notes_config()
-        self.assertEqual(self.sr_no_notes.config.notes, '')
+        self.config_missing.load_notes_config()
+        self.assertEqual(self.sr_missing_config.config.notes, '')
+
+    def test_goal_is_set_to_numeric_value(self):
+        self.assertEqual(self.sr.config.goal, 70)
+
+    def test_goal_is_set_to_false_when_no_option_is_provided(self):
+        self.assertEqual(self.sr_missing_config.config.goal, False)
+
+    def test_goal_is_set_to_false_when_non_numeric_value_is_provided(self):
+        with mock.patch('builtins.print') as mock_print:
+            config_bad = SRConfig('tests/test_config/', 'config-bad-values.ini')
+            self.assertEqual(config_bad.goal, False)
+            mock_print.assert_called_once_with(
+                'The value for \'goal\' should be numeric, e.g. 65.'
+            )
 
 
 class TestFREDConfig(unittest.TestCase):
     def setUp(self):
         self.config = SRConfig('tests/test_config/', 'config-test.ini')
         self.sr = SavingsRate(self.config)
-        self.config_no_fred = SRConfig(
-            'tests/test_config/', 'config-no-fred-no-notes.ini'
+        self.config_missing = SRConfig(
+            'tests/test_config/', 'config-missing-values.ini'
         )
-        self.sr_no_fred = SavingsRate(self.config_no_fred)
+        self.sr_no_fred = SavingsRate(self.config_missing)
 
     def test_load_fred_config(self):
         self.sr.config.load_fred_url_config()
