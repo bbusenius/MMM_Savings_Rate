@@ -110,7 +110,7 @@ In order to use these settings, you will need to signup for an account with FRED
 
 Once you enable FRED, you will be able to see how your savings rates dominate the US average*.
 
-![Example savings rates plotted](https://github.com/bbusenius/MMM_Savings_Rate/raw/master/docs/FRED.png)
+![US average savings rates plotted](https://github.com/bbusenius/MMM_Savings_Rate/raw/master/docs/FRED.png)
 
 *US average savings rates calculated by FRED are generated after removing outlays from personal income. Since outlays include purchases of durable and non-durable goods, these savings rates are inflated. Even so, as a Mustachian you will easily beat these averages.
 
@@ -118,15 +118,17 @@ If you want to annotate points on your plot with text from your spreadsheet, you
 
 - **notes** - the name of a column header that maps to notes or special events that you want to show on your plot.
 
+![Savings rates plotted with annotations](https://github.com/bbusenius/MMM_Savings_Rate/raw/master/docs/notes.png)
+
 If you want to plot your progress towards FI as a percentage of your FI number, you can enable this with the following settings in your config.ini:
 
 - **fi_number** - your FI number.
 - **total_balances** - a spreadsheet heading name that maps to a column where you track the total monthly balance of all your accounts.
+- **percent_fi_notes** - a spreadsheet heading name that maps to a column with text that you want to show on the % FI plot. Entries will appear as event dots on the plot and will display tooltips with the note on hover.
 
 This doesn't take into account liabilities so, if you have them, you can just as easily map these configurations to a column that tracks net worth.
 
-
-![Example savings rates plotted](https://github.com/bbusenius/MMM_Savings_Rate/raw/master/docs/notes.png)
+![Percent FI plotted with annotations](https://github.com/bbusenius/MMM_Savings_Rate/raw/master/docs/percent-fi-notes.png)
 
 ### Running the simulation
 
