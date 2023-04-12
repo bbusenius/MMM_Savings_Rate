@@ -105,6 +105,8 @@ class SRConfig:
         self.fred_url = ''
         self.notes = ''
         self.goal = False
+        self.fi_number = False
+        self.total_balances = False
 
         self.load_user_config()
 
@@ -176,15 +178,27 @@ class SRConfig:
         self.load_fred_api_key_config()
         self.load_notes_config()
         self.load_goal_config()
+        self.load_fi_number_config()
+        self.load_total_balances_config()
 
     def load_notes_config(self):
         """
-        Loads the notes confit from an .ini if it exists.
+        Loads the notes config from an .ini if it exists.
         """
         try:
             self.notes = self.user_config.get('Sources', 'notes')
         except (configparser.NoOptionError):
             self.notes = ''
+
+    def load_total_balances_config(self):
+        """
+        Loads the config for a header column where users store
+        their total account balances.
+        """
+        try:
+            self.total_balances = self.user_config.get('Sources', 'total_balances')
+        except (configparser.NoOptionError):
+            self.total_balances = False
 
     def load_fred_url_config(self):
         """
@@ -229,6 +243,25 @@ class SRConfig:
                 self.goal = float(goal)
             except (ValueError):
                 print('The value for \'goal\' should be numeric, e.g. 65.')
+        except (configparser.NoOptionError):
+            self.goal = False
+
+    def load_fi_number_config(self):
+        """
+        FI number the user is trying to hit.
+
+        Args:
+            None
+
+        Returns:
+            None
+        """
+        try:
+            fi_number = self.user_config.get('Sources', 'fi_number')
+            try:
+                self.fi_number = float(fi_number)
+            except (ValueError):
+                print('The value for \'fi_number\' should be numeric, e.g. 1000000.')
         except (configparser.NoOptionError):
             self.goal = False
 
@@ -633,12 +666,13 @@ class SavingsRate:
             OrderedDict([('2015-02', {'income': [Decimal('4833.34')],
                                       'employer_match': [Decimal('120.84')],
                                       'taxes_and_fees': [Decimal('814.70')],
-                                      'notes': {''},
-                                      'savings': [Decimal('1265.85')]}),
+                                      'notes': {''}, 'savings': [Decimal('1265.85')],
+                                      'percent_fi': [4.450954]}),
                          ('2015-03', {'income': [Decimal('4833.34')],
                                       'employer_match': [Decimal('120.84')],
                                       'taxes_and_fees': [Decimal('814.70')],
-                                      'notes': {''}, 'savings': [Decimal('1115.85')]}),
+                                      'notes': {''}, 'savings': [Decimal('1115.85')],
+                                      'percent_fi': [4.500051999999999]}),
         """
         income = self.income.copy()
         savings = self.savings.copy()
@@ -736,6 +770,24 @@ class SavingsRate:
                         # Add a savings note if there is one
                         snote = savings[transfer][self.config.notes]
                         sr[pay_month].setdefault('notes', set()).add(snote)
+
+                        # Calculate % FI
+                        if self.config.total_balances:
+                            total_balances = savings[transfer][
+                                self.config.total_balances
+                            ]
+                            if total_balances and self.config.fi_number:
+                                percent_fi = fi.get_percentage(
+                                    total_balances, self.config.fi_number
+                                )
+                                sr[pay_month].setdefault('percent_fi', []).append(
+                                    percent_fi
+                                )
+                        else:
+                            sr[pay_month].setdefault('percent_fi', []).append(
+                                float('nan')
+                            )
+
         return sr
 
     def get_monthly_savings_rates(self, test_data=False):
@@ -751,6 +803,7 @@ class SavingsRate:
                 - datetime object: python date object.
                 - Decimal: The savings rate for the month.
                 - str: Optional note or event.
+                - float: % FI if enabled.
         """
         if not test_data:
             monthly_data = self.get_monthly_data()
@@ -769,17 +822,25 @@ class SavingsRate:
                 if 'savings' in monthly_data[month]
                 else 0
             )
+
             try:
                 note = monthly_data[month]['notes']
             except (KeyError):
                 note = ''
             spending = pay - savings
+
             try:
                 srate = fi.savings_rate(pay, spending)
             except (InvalidOperation):
                 srate = Decimal(0)
+
+            try:
+                percent_fi = monthly_data[month]['percent_fi']
+            except (KeyError):
+                percent_fi = None
+
             date = datetime.datetime.strptime(month, '%Y-%m')
-            monthly_savings_rates.append((date, srate, note))
+            monthly_savings_rates.append((date, srate, note, percent_fi))
 
         return monthly_savings_rates
 
@@ -928,6 +989,8 @@ class Plot:
         y = []
         notes = []
         y_offset = []
+        percent_fi = []
+        percent_fi_x = []
         for i, data in enumerate(monthly_rates):
             x.append(data[0])
             # Must cast Decimal to float because Bokeh cannot serialize Decimals anymore
@@ -939,6 +1002,9 @@ class Plot:
                 y_offset.append(25)
             else:
                 y_offset.append(-5)
+            if data[3]:
+                percent_fi.append(data[3])
+                percent_fi_x.append(data[0])
 
         # Output to static HTML file
         output_file("savings-rates.html", title="Monthly Savings Rates")
@@ -971,6 +1037,16 @@ class Plot:
             line_width=2,
             line_dash="4 4",
             line_alpha=0.8,
+        )
+
+        # Plot % FI
+        p.line(
+            percent_fi_x,
+            percent_fi,
+            legend_label="% FI",
+            line_color="#000000",
+            line_width=2,
+            line_alpha=0.3,
         )
 
         # Text annotations

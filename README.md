@@ -118,6 +118,14 @@ If you want to annotate points on your plot with text from your spreadsheet, you
 
 - **notes** - the name of a column header that maps to notes or special events that you want to show on your plot.
 
+If you want to plot your progress towards FI as a percentage of your FI number, you can enable this with the following settings in your config.ini:
+
+- **fi_number** - your FI number.
+- **total_balances** - a spreadsheet heading name that maps to a column where you track the total monthly balance of all your accounts.
+
+This doesn't take into account liabilities so, if you have them, you can just as easily map these configurations to a column that tracks net worth.
+
+
 ![Example savings rates plotted](https://github.com/bbusenius/MMM_Savings_Rate/raw/master/docs/notes.png)
 
 ### Running the simulation

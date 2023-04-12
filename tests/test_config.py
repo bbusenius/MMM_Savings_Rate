@@ -170,18 +170,45 @@ class TestSRConfigIni(unittest.TestCase):
         self.assertEqual(self.sr_missing_config.config.notes, '')
 
     def test_goal_is_set_to_numeric_value(self):
+        self.sr.config.load_goal_config()
         self.assertEqual(self.sr.config.goal, 70)
 
     def test_goal_is_set_to_false_when_no_option_is_provided(self):
+        self.sr_missing_config.config.load_goal_config()
         self.assertEqual(self.sr_missing_config.config.goal, False)
 
-    def test_goal_is_set_to_false_when_non_numeric_value_is_provided(self):
+    def test_goal_and_fi_number_when_non_numeric_value_is_provided(self):
         with mock.patch('builtins.print') as mock_print:
             config_bad = SRConfig('tests/test_config/', 'config-bad-values.ini')
             self.assertEqual(config_bad.goal, False)
-            mock_print.assert_called_once_with(
-                'The value for \'goal\' should be numeric, e.g. 65.'
-            )
+            self.assertEqual(config_bad.fi_number, False)
+
+            assert mock_print.call_count == 2
+
+            # Can't use mock_print.assert_called_once_with because there are two
+            # print statments
+            mock_print.call_args_list[0][0][
+                0
+            ] == 'The value for \'goal\' should be numeric, e.g. 65.'
+            mock_print.call_args_list[1][0][
+                0
+            ] == 'The value for \'fi_number\' should be numeric, e.g. 1000000.'
+
+    def test_load_fi_number_config_is_set_to_numeric_value(self):
+        self.sr.config.load_fi_number_config()
+        self.assertEqual(self.sr.config.fi_number, 750000)
+
+    def test_fi_number_is_set_to_false_when_no_option_is_provided(self):
+        self.sr_missing_config.config.load_fi_number_config()
+        self.assertEqual(self.sr_missing_config.config.fi_number, False)
+
+    def test_load_total_balances_config(self):
+        self.sr.config.load_total_balances_config()
+        self.assertEqual(self.sr.config.total_balances, 'Balances')
+
+    def test_load_total_balances_config_with_no_option_error(self):
+        self.sr_missing_config.config.load_total_balances_config()
+        self.assertEqual(self.sr_missing_config.config.total_balances, False)
 
 
 class TestFREDConfig(unittest.TestCase):
