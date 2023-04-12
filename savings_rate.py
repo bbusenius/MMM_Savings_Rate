@@ -30,7 +30,7 @@ import fi
 import pandas as pd
 import requests
 from bokeh.embed import components
-from bokeh.models import DatetimeTickFormatter
+from bokeh.models import ColumnDataSource, DatetimeTickFormatter, HoverTool
 from bokeh.plotting import figure, output_file, show
 from dateutil import parser
 from file_parsing import are_numeric, clean_strings, is_number_of_some_sort
@@ -104,6 +104,7 @@ class SRConfig:
         self.fred_api_key = ''
         self.fred_url = ''
         self.notes = ''
+        self.percent_fi_notes = ''
         self.goal = False
         self.fi_number = False
         self.total_balances = False
@@ -189,6 +190,11 @@ class SRConfig:
             self.notes = self.user_config.get('Sources', 'notes')
         except (configparser.NoOptionError):
             self.notes = ''
+
+        try:
+            self.percent_fi_notes = self.user_config.get('Sources', 'percent_fi_notes')
+        except (configparser.NoOptionError):
+            self.percent_fi_notes = ''
 
     def load_total_balances_config(self):
         """
@@ -663,16 +669,21 @@ class SavingsRate:
             OrderedDict
 
         Example return data:
-            OrderedDict([('2015-02', {'income': [Decimal('4833.34')],
-                                      'employer_match': [Decimal('120.84')],
-                                      'taxes_and_fees': [Decimal('814.70')],
-                                      'notes': {''}, 'savings': [Decimal('1265.85')],
-                                      'percent_fi': [4.450954]}),
-                         ('2015-03', {'income': [Decimal('4833.34')],
-                                      'employer_match': [Decimal('120.84')],
-                                      'taxes_and_fees': [Decimal('814.70')],
-                                      'notes': {''}, 'savings': [Decimal('1115.85')],
-                                      'percent_fi': [4.500051999999999]}),
+            OrderedDict([
+                ('2015-02', {'income': [Decimal('4833.34')],
+                             'employer_match': [Decimal('120.84')],
+                             'taxes_and_fees': [Decimal('814.70')],
+                             'notes': {''},
+                             'savings': [Decimal('1265.85')],
+                             'percent_fi_notes': {''},
+                             'percent_fi': [4.450954]}),
+                ('2015-03', {'income': [Decimal('4833.34')],
+                             'employer_match': [Decimal('120.84')],
+                             'taxes_and_fees': [Decimal('814.70')],
+                             'notes': {''},
+                             'savings': [Decimal('1115.85')],
+                             'percent_fi_notes': {''},
+                             'percent_fi': [4.500051999999999]}),
         """
         income = self.income.copy()
         savings = self.savings.copy()
@@ -734,7 +745,10 @@ class SavingsRate:
             sr[pay_month].setdefault('taxes_and_fees', []).append(taxes)
 
             # Add an income note if there is one
-            inote = income[payout][self.config.notes]
+            try:
+                inote = income[payout][self.config.notes]
+            except (KeyError):
+                inote = ''
             sr[pay_month].setdefault('notes', set()).add(inote)
 
             if 'savings' not in sr[pay_month]:
@@ -768,8 +782,20 @@ class SavingsRate:
                         )
 
                         # Add a savings note if there is one
-                        snote = savings[transfer][self.config.notes]
+                        try:
+                            snote = savings[transfer][self.config.notes]
+                        except (KeyError):
+                            snote = ''
                         sr[pay_month].setdefault('notes', set()).add(snote)
+
+                        # % FI note
+                        try:
+                            pfi_note = savings[transfer][self.config.percent_fi_notes]
+                        except (KeyError):
+                            pfi_note = ''
+                        sr[pay_month].setdefault('percent_fi_notes', set()).add(
+                            pfi_note
+                        )
 
                         # Calculate % FI
                         if self.config.total_balances:
@@ -787,7 +813,6 @@ class SavingsRate:
                             sr[pay_month].setdefault('percent_fi', []).append(
                                 float('nan')
                             )
-
         return sr
 
     def get_monthly_savings_rates(self, test_data=False):
@@ -802,8 +827,9 @@ class SavingsRate:
             list: a list of tuples where each tuple contains:
                 - datetime object: python date object.
                 - Decimal: The savings rate for the month.
-                - str: Optional note or event.
+                - set: strings, optional notes or event.
                 - float: % FI if enabled.
+                - set: string note related to the % FI plot.
         """
         if not test_data:
             monthly_data = self.get_monthly_data()
@@ -827,8 +853,8 @@ class SavingsRate:
                 note = monthly_data[month]['notes']
             except (KeyError):
                 note = ''
-            spending = pay - savings
 
+            spending = pay - savings
             try:
                 srate = fi.savings_rate(pay, spending)
             except (InvalidOperation):
@@ -839,8 +865,13 @@ class SavingsRate:
             except (KeyError):
                 percent_fi = None
 
+            try:
+                pfi_note = monthly_data[month]['percent_fi_notes']
+            except (KeyError):
+                pfi_note = ''
+
             date = datetime.datetime.strptime(month, '%Y-%m')
-            monthly_savings_rates.append((date, srate, note, percent_fi))
+            monthly_savings_rates.append((date, srate, note, percent_fi, pfi_note))
 
         return monthly_savings_rates
 
@@ -991,12 +1022,14 @@ class Plot:
         y_offset = []
         percent_fi = []
         percent_fi_x = []
+        percent_fi_notes = []
         for i, data in enumerate(monthly_rates):
             x.append(data[0])
             # Must cast Decimal to float because Bokeh cannot serialize Decimals anymore
             y.append(float(data[1]))
             # Only separate notes with a line break if there are more than one and they aren't empty
             notes.append('\n'.join(data[2]).strip('\n'))
+            percent_fi_notes.append(''.join(data[4]).strip())
             # Display text below the point if it's a drop for a better chance at good formatting
             if data[1] < monthly_rates[i - 1][1]:
                 y_offset.append(25)
@@ -1049,7 +1082,19 @@ class Plot:
             line_alpha=0.3,
         )
 
-        # Text annotations
+        # % FI text annotations
+        # p.text(
+        #    x=percent_fi_x,
+        #    y=percent_fi,
+        #    text=percent_fi_notes,
+        #    text_color="#777777",
+        #    text_align="center",
+        # )
+        self.update_plot_with_percent_fi_notes(
+            p, percent_fi, percent_fi_x, percent_fi_notes
+        )
+
+        # Savings rate text annotations
         p.text(
             x=x,
             y=y,
@@ -1128,3 +1173,49 @@ class Plot:
             line_width=2,
             line_dash="4 4",
         )
+
+    def update_plot_with_percent_fi_notes(
+        self, p, percent_fi, percent_fi_x, percent_fi_notes
+    ):
+        non_empty_notes = [note if note != '' else None for note in percent_fi_notes]
+        non_empty_notes_source = ColumnDataSource(
+            data=dict(
+                percent_fi_x=[
+                    x
+                    for x, note in zip(percent_fi_x, non_empty_notes)
+                    if note is not None
+                ],
+                percent_fi=[
+                    fi
+                    for fi, note in zip(percent_fi, non_empty_notes)
+                    if note is not None
+                ],
+                percent_fi_notes=[note for note in non_empty_notes if note is not None],
+            )
+        )
+        p.circle(
+            x='percent_fi_x',
+            y='percent_fi',
+            size=6,
+            color='#777777',
+            source=non_empty_notes_source,
+        )
+        invisible_circle = p.circle(
+            x='percent_fi_x',
+            y='percent_fi',
+            size=40,
+            fill_alpha=0.0,
+            line_alpha=0.0,
+            source=non_empty_notes_source,
+        )
+        tooltips = [
+            ('', '<span style="font-size:15px;">@percent_fi_notes{safe}</span>'),
+        ]
+        hover_tool = HoverTool(
+            renderers=[invisible_circle],
+            tooltips=tooltips,
+            show_arrow=False,
+            mode='mouse',
+        )
+        hover_tool.formatters = {'@labels': 'printf'}
+        p.add_tools(hover_tool)

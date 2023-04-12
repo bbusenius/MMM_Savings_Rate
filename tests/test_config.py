@@ -166,8 +166,10 @@ class TestSRConfigIni(unittest.TestCase):
     def test_load_notes_config(self):
         self.config.load_notes_config()
         self.assertEqual(self.sr.config.notes, 'My Notes')
+        self.assertEqual(self.sr.config.percent_fi_notes, '% FI Notes')
         self.config_missing.load_notes_config()
         self.assertEqual(self.sr_missing_config.config.notes, '')
+        self.assertEqual(self.sr_missing_config.config.percent_fi_notes, '')
 
     def test_goal_is_set_to_numeric_value(self):
         self.sr.config.load_goal_config()
