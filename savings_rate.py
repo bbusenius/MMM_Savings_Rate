@@ -1088,14 +1088,18 @@ class Plot:
         )
 
         # Plot % FI
-        p.line(
-            percent_fi_x,
-            percent_fi,
-            legend_label="% FI",
-            line_color="#000000",
-            line_width=2,
-            line_alpha=0.3,
-        )
+        if self.user.config.fi_number and self.user.config.total_balances:
+            p.line(
+                percent_fi_x,
+                percent_fi,
+                legend_label="% FI",
+                line_color="#000000",
+                line_width=2,
+                line_alpha=0.3,
+            )
+            self.update_plot_with_percent_fi_notes(
+                p, percent_fi, percent_fi_x, percent_fi_notes
+            )
 
         # % FI text annotations
         # p.text(
@@ -1105,9 +1109,6 @@ class Plot:
         #    text_color="#777777",
         #    text_align="center",
         # )
-        self.update_plot_with_percent_fi_notes(
-            p, percent_fi, percent_fi_x, percent_fi_notes
-        )
 
         # Savings rate text annotations
         p.text(
