@@ -1053,13 +1053,28 @@ class Plot:
             years='%Y', months='%b %Y', days='%b %d %Y'
         )
 
-        # Show average US savings rates if enabled.
-        if self.user.config.has_fred():
-            self.update_plot_for_fred(p, monthly_rates)
-
         # Add a line renderer with legend and line thickness
         p.line(x, y, legend_label="My savings rate", line_width=2)
         p.circle(x, y, size=6)
+        inv = p.circle(
+            x,
+            y,
+            size=15,
+            fill_alpha=0.0,
+            line_alpha=0.0,
+        )
+
+        # Tooltips for monthly savings rate
+        tooltips = [
+            ('Date', '@x{%m/%Y}'),
+            ('Rate', '@y'),
+        ]
+        hover_tool = HoverTool(
+            renderers=[inv],
+            tooltips=tooltips,
+            formatters={'@x': 'datetime'},
+        )
+        p.add_tools(hover_tool)
 
         # Plot the average monthly savings rate
         p.line(
@@ -1115,6 +1130,10 @@ class Plot:
                 line_dash="4 4",
             )
 
+        # Show average US savings rates if enabled.
+        if self.user.config.has_fred():
+            self.update_plot_for_fred(p, monthly_rates)
+
         # Plot the savings rate of enemies if war_mode is on
         if self.user.config.war_mode is True:
             for war in self.user.config.user_enemies:
@@ -1168,7 +1187,7 @@ class Plot:
         p.line(
             us_average_x,
             us_average_y,
-            legend_label="Average US savings",
+            legend_label="US average savings",
             line_color="#9467bd",
             line_width=2,
             line_dash="4 4",
