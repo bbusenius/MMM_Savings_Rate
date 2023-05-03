@@ -12,6 +12,7 @@ setup(
     name='MMM_Savings_Rate',
     description='An application that can parse spreadsheets in order to '
     'calculate and plot a user\'s monthly savings rate over time. ',
+    python_requires='>=3.10',
     version='1.0',
     author='Brad Busenius',
     author_email='bbusenius@gmail.com',
