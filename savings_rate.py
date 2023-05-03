@@ -1048,6 +1048,7 @@ class Plot:
             y_axis_label='% of take home pay',
             x_axis_type="datetime",
         )
+        p.toolbar.logo = None
 
         p.below[0].formatter = DatetimeTickFormatter(
             years='%Y', months='%b %Y', days='%b %d %Y'
