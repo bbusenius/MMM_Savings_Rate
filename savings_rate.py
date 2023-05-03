@@ -105,6 +105,7 @@ class SRConfig:
         self.fred_url = ''
         self.notes = ''
         self.percent_fi_notes = ''
+        self.show_average = True
         self.goal = False
         self.fi_number = False
         self.total_balances = False
@@ -178,6 +179,7 @@ class SRConfig:
         self.load_fred_url_config()
         self.load_fred_api_key_config()
         self.load_notes_config()
+        self.load_show_average_config()
         self.load_goal_config()
         self.load_fi_number_config()
         self.load_total_balances_config()
@@ -251,6 +253,15 @@ class SRConfig:
                 print('The value for \'goal\' should be numeric, e.g. 65.')
         except (configparser.NoOptionError):
             self.goal = False
+
+    def load_show_average_config(self):
+        """
+        Loads the config from .ini if it exists.
+        """
+        try:
+            self.show_average = self.user_config.getboolean('Sources', 'show_average')
+        except (configparser.NoOptionError):
+            pass
 
     def load_fi_number_config(self):
         """
@@ -1078,15 +1089,16 @@ class Plot:
         p.add_tools(hover_tool)
 
         # Plot the average monthly savings rate
-        p.line(
-            x,
-            average_rate,
-            legend_label="My average rate",
-            line_color="#ff6600",
-            line_width=2,
-            line_dash="4 4",
-            line_alpha=0.8,
-        )
+        if self.user.config.show_average is True:
+            p.line(
+                x,
+                average_rate,
+                legend_label="My average rate",
+                line_color="#ff6600",
+                line_width=2,
+                line_dash="4 4",
+                line_alpha=0.8,
+            )
 
         # Plot % FI
         if self.user.config.fi_number and self.user.config.total_balances:

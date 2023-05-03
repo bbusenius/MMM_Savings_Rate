@@ -196,6 +196,14 @@ class TestSRConfigIni(unittest.TestCase):
                 0
             ] == 'The value for \'fi_number\' should be numeric, e.g. 1000000.'
 
+    def test_show_average_normally(self):
+        self.sr.config.load_show_average_config()
+        self.assertEqual(self.sr.config.show_average, True)
+
+    def test_show_average_is_set_to_true_when_no_option_is_provided(self):
+        self.sr_missing_config.config.load_show_average_config()
+        self.assertEqual(self.sr_missing_config.config.show_average, True)
+
     def test_load_fi_number_config_is_set_to_numeric_value(self):
         self.sr.config.load_fi_number_config()
         self.assertEqual(self.sr.config.fi_number, 750000)
