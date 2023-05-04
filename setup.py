@@ -1,12 +1,17 @@
 # -*- coding: utf-8 -*-
 from setuptools import find_packages, setup
 
+with open('README.md', 'r', encoding='utf-8') as fh:
+    long_description = fh.read()
+    long_description_type = 'text/markdown'
+
 try:
     import pypandoc
 
-    LONG_DESCRIPTION = pypandoc.convert('README.md', 'rst')
+    long_description = pypandoc.convert_text(long_description, 'rst', format='md')
+    long_description_type = 'text/x-rst'
 except (IOError, ImportError):
-    LONG_DESCRIPTION = open('README.md').read()
+    pass
 
 setup(
     name='MMM_Savings_Rate',
@@ -41,6 +46,7 @@ setup(
         'requests',
     ],
     test_suite='tests',
-    long_description=LONG_DESCRIPTION,
+    long_description=long_description,
+    long_description_content_type=long_description_type,
     zip_safe=False,
 )
