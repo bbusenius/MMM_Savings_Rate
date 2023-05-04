@@ -280,7 +280,7 @@ class SRConfig:
             except (ValueError):
                 print('The value for \'fi_number\' should be numeric, e.g. 1000000.')
         except (configparser.NoOptionError):
-            self.goal = False
+            self.fi_number = False
 
     def validate_user_ini(self):
         """
