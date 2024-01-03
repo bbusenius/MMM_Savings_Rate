@@ -93,10 +93,6 @@ The majority of the main settings are listed under `[Sources]`. Settings include
 - **goal** - optional setting that allows you to set a savings rate goal that you're trying to reach.
 - **war** - allows you to show or hide, "enemy" plots on your graph. Set this to, "off" if you only want to see your own data.
 
-##### Graph settings
-
-Settings under `[Graph]` allow you to change the width and height of the plot that's generated (though plots are generally responsive).
-
 ##### Additional settings
 
 ###### US Average Savings Rates from FRED

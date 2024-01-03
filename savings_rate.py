@@ -49,7 +49,6 @@ REQUIRED_INI_USER_OPTIONS = {
         'savings_date',
         'war',
     ],
-    'Graph': ['width', 'height'],
 }
 
 
@@ -300,17 +299,6 @@ class SRConfig:
                     + section
                     + '] section of config.ini.'
                 )
-
-        # Assumptions about the data
-        assert (
-            are_numeric(
-                [
-                    self.user_config.get('Graph', 'width'),
-                    self.user_config.get('Graph', 'height'),
-                ]
-            )
-            is True
-        ), '[Graph] width and height must contain numeric values.'
 
     def load_account_config_from_ini(self):
         """
@@ -1021,8 +1009,6 @@ class Plot:
         """
 
         # Convenience variables
-        graph_width = int(self.user.config.user_config.get('Graph', 'width'))
-        graph_height = int(self.user.config.user_config.get('Graph', 'height'))
         average_rate = self.user.average_monthly_savings_rates(monthly_rates)
         colors = list(self.colors)
 
@@ -1183,10 +1169,7 @@ class Plot:
 
         # Show the results
         if embed is False:
-            # Set the width and the height
-            p.height = graph_height
-            p.width = graph_width
-            p.sizing_mode = "scale_both"
+            p.sizing_mode = "stretch_both"
             show(p)
         else:
             return components(p)
