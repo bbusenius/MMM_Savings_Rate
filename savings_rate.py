@@ -189,12 +189,12 @@ class SRConfig:
         """
         try:
             self.notes = self.user_config.get('Sources', 'notes')
-        except (configparser.NoOptionError):
+        except configparser.NoOptionError:
             self.notes = ''
 
         try:
             self.percent_fi_notes = self.user_config.get('Sources', 'percent_fi_notes')
-        except (configparser.NoOptionError):
+        except configparser.NoOptionError:
             self.percent_fi_notes = ''
 
     def load_total_balances_config(self):
@@ -204,7 +204,7 @@ class SRConfig:
         """
         try:
             self.total_balances = self.user_config.get('Sources', 'total_balances')
-        except (configparser.NoOptionError):
+        except configparser.NoOptionError:
             self.total_balances = False
 
     def load_fred_url_config(self):
@@ -213,7 +213,7 @@ class SRConfig:
         """
         try:
             self.fred_url = self.user_config.get('Sources', 'fred_url')
-        except (configparser.NoOptionError):
+        except configparser.NoOptionError:
             self.fred_url = ''
 
     def load_fred_api_key_config(self):
@@ -222,7 +222,7 @@ class SRConfig:
         """
         try:
             self.fred_api_key = self.user_config.get('Sources', 'fred_api_key')
-        except (configparser.NoOptionError):
+        except configparser.NoOptionError:
             self.fred_api_key = ''
 
     def has_fred(self):
@@ -248,9 +248,9 @@ class SRConfig:
             goal = self.user_config.get('Sources', 'goal')
             try:
                 self.goal = float(goal)
-            except (ValueError):
+            except ValueError:
                 print('The value for \'goal\' should be numeric, e.g. 65.')
-        except (configparser.NoOptionError):
+        except configparser.NoOptionError:
             self.goal = False
 
     def load_show_average_config(self):
@@ -259,7 +259,7 @@ class SRConfig:
         """
         try:
             self.show_average = self.user_config.getboolean('Sources', 'show_average')
-        except (configparser.NoOptionError):
+        except configparser.NoOptionError:
             pass
 
     def load_fi_number_config(self):
@@ -276,9 +276,9 @@ class SRConfig:
             fi_number = self.user_config.get('Sources', 'fi_number')
             try:
                 self.fi_number = float(fi_number)
-            except (ValueError):
+            except ValueError:
                 print('The value for \'fi_number\' should be numeric, e.g. 1000000.')
-        except (configparser.NoOptionError):
+        except configparser.NoOptionError:
             self.fi_number = False
 
     def validate_user_ini(self):
@@ -317,7 +317,7 @@ class SRConfig:
                 account_config = self.account_config.read(
                     self.user_conf_dir + self.test_account_ini
                 )
-            except (TypeError):
+            except TypeError:
                 raise RuntimeError(
                     'If test=True, a test .ini must be provided. You must provide a value for test_file.'
                 )
@@ -500,7 +500,7 @@ class SavingsRate:
         """
         try:
             number = number.strip()
-        except (AttributeError):
+        except AttributeError:
             pass
         if number is None or number == '':
             retval = 0.0
@@ -746,7 +746,7 @@ class SavingsRate:
             # Add an income note if there is one
             try:
                 inote = income[payout][self.config.notes]
-            except (KeyError):
+            except KeyError:
                 inote = ''
             sr[pay_month].setdefault('notes', set()).add(inote)
 
@@ -783,14 +783,14 @@ class SavingsRate:
                         # Add a savings note if there is one
                         try:
                             snote = savings[transfer][self.config.notes]
-                        except (KeyError):
+                        except KeyError:
                             snote = ''
                         sr[pay_month].setdefault('notes', set()).add(snote)
 
                         # % FI note
                         try:
                             pfi_note = savings[transfer][self.config.percent_fi_notes]
-                        except (KeyError):
+                        except KeyError:
                             pfi_note = ''
                         sr[pay_month].setdefault('percent_fi_notes', set()).add(
                             pfi_note
@@ -850,23 +850,23 @@ class SavingsRate:
 
             try:
                 note = monthly_data[month]['notes']
-            except (KeyError):
+            except KeyError:
                 note = ''
 
             spending = pay - savings
             try:
                 srate = fi.savings_rate(pay, spending)
-            except (InvalidOperation):
+            except InvalidOperation:
                 srate = Decimal(0)
 
             try:
                 percent_fi = monthly_data[month]['percent_fi']
-            except (KeyError):
+            except KeyError:
                 percent_fi = None
 
             try:
                 pfi_note = monthly_data[month]['percent_fi_notes']
-            except (KeyError):
+            except KeyError:
                 pfi_note = ''
 
             date = datetime.datetime.strptime(month, '%Y-%m')
@@ -1053,14 +1053,8 @@ class Plot:
 
         # Add a line renderer with legend and line thickness
         p.line(x, y, legend_label="My savings rate", line_width=2)
-        p.circle(x, y, size=6)
-        inv = p.circle(
-            x,
-            y,
-            size=15,
-            fill_alpha=0.0,
-            line_alpha=0.0,
-        )
+        p.scatter(x, y, size=6, marker='circle')
+        inv = p.scatter(x, y, size=15, fill_alpha=0.0, line_alpha=0.0, marker='circle')
 
         # Tooltips for monthly savings rate
         tooltips = [
@@ -1209,20 +1203,22 @@ class Plot:
                 percent_fi_notes=[note for note in non_empty_notes if note is not None],
             )
         )
-        p.circle(
+        p.scatter(
             x='percent_fi_x',
             y='percent_fi',
             size=6,
             color='#777777',
             source=non_empty_notes_source,
+            marker='circle',
         )
-        invisible_circle = p.circle(
+        invisible_circle = p.scatter(
             x='percent_fi_x',
             y='percent_fi',
             size=40,
             fill_alpha=0.0,
             line_alpha=0.0,
             source=non_empty_notes_source,
+            marker='circle',
         )
         tooltips = [
             ('', '<span style="font-size:15px;">@percent_fi_notes{safe}</span>'),
