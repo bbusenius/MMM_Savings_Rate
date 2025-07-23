@@ -1,0 +1,47 @@
+{
+  "main_user_settings": {
+    "pay": "/path/to/your/income.xlsx",
+    "pay_date": "Date",
+    "gross_income": "Gross Pay",
+    "employer_match": "Employer Match",
+    "taxes_and_fees": ["OASDI", "Medicare", "Federal Withholding"],
+    "savings": "/path/to/your/savings.xlsx",
+    "savings_date": "Date",
+    "savings_accounts": ["Vanguard Roth", "Savings Account"],
+    "notes": "",
+    "show_average": true,
+    "war": "off",
+    "fred_url": "https://api.stlouisfed.org/fred/series/observations?series_id=PSAVERT&file_type=json",
+    "fred_api_key": "",
+    "goal": null,
+    "fi_number": null,
+    "total_balances": "",
+    "percent_fi_notes": ""
+  },
+  "enemy_settings": [
+    {
+      "_id": 2,
+      "pay": "/path/to/your/income-joe.xlsx",
+      "pay_date": "Date",
+      "gross_income": "Gross Pay",
+      "employer_match": "Employer Match",
+      "taxes_and_fees": ["Federal Tax", "State Tax"],
+      "savings": "/path/to/your/savings-joe.xlsx",
+      "savings_date": "Date",
+      "savings_accounts": ["Savings Account"],
+      "notes": "",
+      "show_average": true,
+      "war": "on",
+      "fred_url": "https://api.stlouisfed.org/fred/series/observations?series_id=PSAVERT&file_type=json",
+      "fred_api_key": "",
+      "goal": null,
+      "fi_number": null,
+      "total_balances": "",
+      "percent_fi_notes": ""
+    }
+  ],
+  "users": [
+    {"_id": 1, "name": "User", "config_ref": "main_user_settings"},
+    {"_id": 2, "name": "Joe", "config_ref": "enemy_2"}
+  ]
+}

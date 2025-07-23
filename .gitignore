@@ -19,3 +19,9 @@ csv/income.xlsx
 csv/savings.xlsx
 csv/income-uzia.csv
 csv/savings-uzia.csv
+venv/
+.vscode/
+savings-rates.html
+.claude
+CLAUDE.md
+.gemini

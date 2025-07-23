@@ -18,7 +18,6 @@
 # along with this program.  If not, see
 # <https://www.gnu.org/licenses/gpl-3.0.html/>.
 
-import configparser
 import csv
 import datetime
 import json
@@ -35,21 +34,7 @@ from bokeh.plotting import figure, output_file, show
 from dateutil import parser
 from file_parsing import are_numeric, clean_strings, is_number_of_some_sort
 
-REQUIRED_INI_ACCOUNT_OPTIONS = {'Users': ['self']}
-
-REQUIRED_INI_USER_OPTIONS = {
-    'Sources': [
-        'pay',
-        'pay_date',
-        'gross_income',
-        'employer_match',
-        'taxes_and_fees',
-        'savings',
-        'savings_accounts',
-        'savings_date',
-        'war',
-    ],
-}
+from db_config import DBConfigManager
 
 
 class SRConfig:
@@ -58,28 +43,18 @@ class SRConfig:
     savings rate object.
 
     Args:
-        user_conf_dir: path to a directory of user .ini
-        configuration files.
-
-        user_conf: a string name of a  user .ini file.
-
         user: optional, an integer representing the
-        unique id of a user. This is only needed when
-        running as part of an application connected to
-        a database. Not necessary when running with
-        csv files.
+        unique id of a user. Used to load specific user configurations
+        from the TinyDB database. Defaults to 1 (main user).
 
         enemies: optional, a list of integers representing
-        the unique ids of user enemies. Like the above, this
-        is only needed when running as part of an application
-        connected to a database. Not necessary when running
-        with csv files.
+        the unique ids of user enemies. Used to load enemy configurations
+        from the TinyDB database.
 
         test: boolean, defaults to False. Set
-        to True for testing the account-config.ini
-        under a different name.
+        to True for testing with a custom database file.
 
-        test_file: string, name of an .ini to test.
+        test_file: string, path to a test database file.
         Defaults to None and should only be set if
         test=True.
     """
@@ -88,27 +63,31 @@ class SRConfig:
         self,
         user_conf_dir=None,
         user_conf=None,
-        user=None,
         enemies=None,
         test=False,
         test_file=None,
+        user_id=None,
     ):
+        # Initialize database manager
+        if test and test_file:
+            self.db_manager = DBConfigManager(test_file)
+        else:
+            self.db_manager = DBConfigManager()
 
-        self.user_conf_dir = user_conf_dir
-        self.user_ini = user_conf_dir + user_conf
-        self.is_test = test
-        self.test_account_ini = test_file
+        # Initialize database
+        if not self.db_manager.initialize_db():
+            raise RuntimeError("Failed to initialize configuration database")
+
+        # Set user ID (default to 1 if not specified)
+        if user_id is not None:
+            self.user_id = user_id
+        else:
+            self.user_id = 1  # Default to main user
+
+        self.enemy_ids = enemies or []
+
+        # Load configurations
         self.load_account_config()
-
-        self.fred_api_key = ''
-        self.fred_url = ''
-        self.notes = ''
-        self.percent_fi_notes = ''
-        self.show_average = True
-        self.goal = False
-        self.fi_number = False
-        self.total_balances = False
-
         self.load_user_config()
 
         # Set the date format to use
@@ -116,114 +95,232 @@ class SRConfig:
 
     def load_account_config(self):
         """
-        Wrapper function, loads configurations from
-        ini files.
+        Load account configurations from TinyDB.
         """
-        return self.load_account_config_from_ini()
+        try:
+            # Get users from database
+            users = self.db_manager.get_users()
+
+            # Find the requested user (or main user by default)
+            target_user = None
+            for user in users:
+                if user.get('_id') == self.user_id:
+                    target_user = user
+                    break
+
+            if not target_user:
+                raise RuntimeError(f"User with ID {self.user_id} not found in database")
+
+            # Set user information
+            self.user = [
+                str(target_user['_id']),
+                target_user['name'],
+                target_user['config_ref'],
+            ]
+
+            # Get enemies if specified
+            if self.enemy_ids:
+                self.user_enemies = []
+                for enemy_id in self.enemy_ids:
+                    enemy_user = self.db_manager.get_user_by_id(enemy_id)
+                    if enemy_user:
+                        self.user_enemies.append(
+                            [
+                                str(enemy_user['_id']),
+                                enemy_user['name'],
+                                enemy_user['config_ref'],
+                            ]
+                        )
+            else:
+                # Get all other users as potential enemies
+                enemies = [user for user in users if user.get('_id') != self.user_id]
+                if enemies:
+                    self.user_enemies = [
+                        [str(enemy['_id']), enemy['name'], enemy['config_ref']]
+                        for enemy in enemies
+                    ]
+                else:
+                    self.user_enemies = None
+
+            # Validate the loaded data
+            self.validate_loaded_account_data()
+
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to load account configuration from database: {e}"
+            )
+
+    def validate_loaded_account_data(self):
+        """
+        Validate the data loaded from the database.
+        """
+        # Validate main user data
+        if not hasattr(self, 'user') or not self.user or len(self.user) != 3:
+            raise RuntimeError(
+                'Main user data is invalid. Expected [id, name, config_ref] format.'
+            )
+
+        # Collect user IDs to check for uniqueness
+        user_ids = set()
+        current_user_id = self.user[0]
+        user_ids.add(current_user_id)
+
+        # Validate enemy data if present
+        if self.user_enemies:
+            for i, enemy in enumerate(self.user_enemies):
+                if len(enemy) != 3:
+                    raise RuntimeError(
+                        f'Enemy {i + 1} data is invalid. Expected [id, name, config_ref] format.'
+                    )
+
+                enemy_id = enemy[0]
+                if enemy_id in user_ids:
+                    raise RuntimeError(f'Duplicate user ID: {enemy_id}')
+                user_ids.add(enemy_id)
 
     def load_user_config(self):
         """
-        Wrapper function, load the user configurations
-        from .ini files or the db
+        Load user configurations from TinyDB.
         """
-        config = self.load_user_config_from_ini()
-        return config
+        try:
+            # Get user settings based on user ID
+            if self.user_id == 1:
+                # Main user settings
+                settings = self.db_manager.get_main_user_settings()
+            else:
+                # Enemy user settings
+                settings = self.db_manager.get_enemy_settings(self.user_id)
+                if not settings:
+                    raise RuntimeError(
+                        f"Enemy settings not found for user ID {self.user_id}"
+                    )
 
-    def load_user_config_from_ini(self):
-        """
-        Get user configurations from .ini files.
-        """
-        # Get the user configurations
-        self.user_config = configparser.RawConfigParser()
-        config = self.user_config.read(self.user_ini)
+            # Validate the settings
+            self.validate_user_settings(settings)
 
-        # Raise an exception if a user config
-        # cannot be found
-        if config == []:
-            raise FileNotFoundError(
-                'The user config is an empty []. Create a user config file and make sure it\'s referenced in account-config.ini.'
+            # Set configuration attributes from database
+            self.savings_source = settings['savings']
+            self.savings_source_type = self.file_extension(self.savings_source)
+
+            self.pay_source = settings['pay']
+            self.pay_source_type = self.file_extension(self.pay_source)
+
+            self.war_mode = settings['war'] == 'on'
+
+            self.gross_income = settings['gross_income']
+            self.employer_match = settings['employer_match']
+
+            # Handle list fields
+            if isinstance(settings['taxes_and_fees'], list):
+                self.taxes_and_fees = ','.join(settings['taxes_and_fees'])
+            else:
+                self.taxes_and_fees = settings['taxes_and_fees']
+
+            if isinstance(settings['savings_accounts'], list):
+                self.savings_accounts = ','.join(settings['savings_accounts'])
+            else:
+                self.savings_accounts = settings['savings_accounts']
+
+            self.pay_date = settings['pay_date']
+            self.savings_date = settings['savings_date']
+
+            # Required columns for spreadsheets
+            self.required_income_columns = set(
+                [self.gross_income, self.employer_match, self.pay_date]
+            ).union(clean_strings(set(self.taxes_and_fees.split(','))))
+            self.required_savings_columns = set([self.savings_date]).union(
+                set(clean_strings(self.savings_accounts.split(',')))
             )
 
-        # Validate the configparser config object
-        self.validate_user_ini()
+            # Load additional configuration settings
+            self.fred_url = settings.get('fred_url', '')
+            self.fred_api_key = settings.get('fred_api_key', '')
+            self.notes = settings.get('notes', '')
+            self.percent_fi_notes = settings.get('percent_fi_notes', '')
+            self.show_average = settings.get('show_average', True)
 
-        # Source of and file type of savings data (.xlsx of .csv)
-        self.savings_source = self.user_config.get('Sources', 'savings')
-        self.savings_source_type = self.file_extension(self.savings_source)
+            # Load and validate numeric fields with error handling
+            self.goal = self._load_numeric_config(settings, 'goal')
+            self.fi_number = self._load_numeric_config(settings, 'fi_number')
+            self.total_balances = settings.get('total_balances', False)
 
-        # Source and file type of income data (.xlsx of .csv)
-        self.pay_source = self.user_config.get('Sources', 'pay')
-        self.pay_source_type = self.file_extension(self.pay_source)
+        except Exception as e:
+            raise RuntimeError(f"Failed to load user configuration from database: {e}")
 
-        # Set war mode
-        self.war_mode = self.user_config.getboolean('Sources', 'war')
-
-        # Other spreadsheet columns we care about
-        self.gross_income = self.user_config.get('Sources', 'gross_income')
-        self.employer_match = self.user_config.get('Sources', 'employer_match')
-        self.taxes_and_fees = self.user_config.get('Sources', 'taxes_and_fees')
-        self.savings_accounts = self.user_config.get('Sources', 'savings_accounts')
-        self.pay_date = self.user_config.get('Sources', 'pay_date')
-        self.savings_date = self.user_config.get('Sources', 'savings_date')
-
-        # Required columns for spreadsheets
-        # Column names set in the config must exist in the .csv when we load it
-        # These values are used later to ensure mappings to the .csv are correct
-        self.required_income_columns = set(
-            [self.gross_income, self.employer_match, self.pay_date]
-        ).union(clean_strings(set(self.taxes_and_fees.split(','))))
-        self.required_savings_columns = set([self.savings_date]).union(
-            set(clean_strings(self.savings_accounts.split(',')))
-        )
-        self.load_fred_url_config()
-        self.load_fred_api_key_config()
-        self.load_notes_config()
-        self.load_show_average_config()
-        self.load_goal_config()
-        self.load_fi_number_config()
-        self.load_total_balances_config()
-
-    def load_notes_config(self):
+    def close(self):
         """
-        Loads the notes config from an .ini if it exists.
+        Close the database connection to free resources.
         """
-        try:
-            self.notes = self.user_config.get('Sources', 'notes')
-        except configparser.NoOptionError:
-            self.notes = ''
+        if hasattr(self, 'db_manager') and self.db_manager is not None:
+            self.db_manager.close()
 
-        try:
-            self.percent_fi_notes = self.user_config.get('Sources', 'percent_fi_notes')
-        except configparser.NoOptionError:
-            self.percent_fi_notes = ''
+    def __enter__(self):
+        """
+        Context manager entry. Enables usage with 'with' statements.
 
-    def load_total_balances_config(self):
+        Example:
+            with SRConfig(user_id=1) as config:
+                settings = config.get_main_user_settings()
+            # Database connections and logging handlers automatically closed here
         """
-        Loads the config for a header column where users store
-        their total account balances.
-        """
-        try:
-            self.total_balances = self.user_config.get('Sources', 'total_balances')
-        except configparser.NoOptionError:
-            self.total_balances = False
+        return self
 
-    def load_fred_url_config(self):
+    def __exit__(self, exc_type, exc_val, exc_tb):
         """
-        Loads the config from .ini if it exists.
+        Context manager exit - automatically calls close() to clean up database connections.
+        This prevents ResourceWarnings from unclosed database and logging handlers.
         """
-        try:
-            self.fred_url = self.user_config.get('Sources', 'fred_url')
-        except configparser.NoOptionError:
-            self.fred_url = ''
+        self.close()
 
-    def load_fred_api_key_config(self):
+    def _load_numeric_config(self, settings, field_name):
         """
-        Loads the config from .ini if it exists.
+        Load and validate a numeric configuration field.
+        Returns False and prints error message if value is not numeric.
         """
-        try:
-            self.fred_api_key = self.user_config.get('Sources', 'fred_api_key')
-        except configparser.NoOptionError:
-            self.fred_api_key = ''
+        value = settings.get(field_name)
+        if value is None:
+            return False
+
+        # If it's already a number, return it
+        if isinstance(value, (int, float)):
+            return value
+
+        # Try to convert string to number
+        if isinstance(value, str):
+            try:
+                # Try float first, then int
+                if '.' in value:
+                    return float(value)
+                else:
+                    return int(value)
+            except ValueError:
+                print(f"The value for '{field_name}' should be numeric, e.g. 65.")
+                return False
+
+        # For any other type, print error and return False
+        print(f"The value for '{field_name}' should be numeric, e.g. 65.")
+        return False
+
+    def validate_user_settings(self, settings):
+        """
+        Validate user settings loaded from TinyDB.
+
+        Args:
+            settings: Dict containing user settings from database.
+        """
+        from db_config import REQUIRED_MAIN_USER_FIELDS
+
+        for field in REQUIRED_MAIN_USER_FIELDS:
+            if field not in settings:
+                raise AssertionError(
+                    f"Missing required field in user settings: {field}"
+                )
+
+        # Validate file paths exist
+        if not os.path.exists(settings['pay']):
+            print(f"Warning: Pay file does not exist: {settings['pay']}")
+        if not os.path.exists(settings['savings']):
+            print(f"Warning: Savings file does not exist: {settings['savings']}")
 
     def has_fred(self):
         """
@@ -233,164 +330,6 @@ class SRConfig:
             bool
         """
         return bool(self.fred_api_key and self.fred_url)
-
-    def load_goal_config(self):
-        """
-        Savings rate goal the user is trying to hit.
-
-        Args:
-            None
-
-        Returns:
-            None
-        """
-        try:
-            goal = self.user_config.get('Sources', 'goal')
-            try:
-                self.goal = float(goal)
-            except ValueError:
-                print('The value for \'goal\' should be numeric, e.g. 65.')
-        except configparser.NoOptionError:
-            self.goal = False
-
-    def load_show_average_config(self):
-        """
-        Loads the config from .ini if it exists.
-        """
-        try:
-            self.show_average = self.user_config.getboolean('Sources', 'show_average')
-        except configparser.NoOptionError:
-            pass
-
-    def load_fi_number_config(self):
-        """
-        FI number the user is trying to hit.
-
-        Args:
-            None
-
-        Returns:
-            None
-        """
-        try:
-            fi_number = self.user_config.get('Sources', 'fi_number')
-            try:
-                self.fi_number = float(fi_number)
-            except ValueError:
-                print('The value for \'fi_number\' should be numeric, e.g. 1000000.')
-        except configparser.NoOptionError:
-            self.fi_number = False
-
-    def validate_user_ini(self):
-        """
-        Minimum validation for the user
-        config.ini when running in 'ini' mode.
-        """
-        # Required section and options
-        for section in REQUIRED_INI_USER_OPTIONS:
-            assert self.user_config.has_section(section), (
-                '[' + section + '] is a required section in the user config.ini.'
-            )
-            for option in REQUIRED_INI_USER_OPTIONS[section]:
-                assert self.user_config.has_option(section, option), (
-                    'The "'
-                    + option
-                    + '" option is required in the ['
-                    + section
-                    + '] section of config.ini.'
-                )
-
-    def load_account_config_from_ini(self):
-        """
-        Get the configurations from an .ini file.
-        Throw an exception if the file is lacking
-        required data.
-        """
-        # Load the ini
-        self.account_config = configparser.RawConfigParser()
-        if not self.is_test:
-            account_config = self.account_config.read(
-                self.user_conf_dir + 'account-config.ini'
-            )
-        else:
-            try:
-                account_config = self.account_config.read(
-                    self.user_conf_dir + self.test_account_ini
-                )
-            except TypeError:
-                raise RuntimeError(
-                    'If test=True, a test .ini must be provided. You must provide a value for test_file.'
-                )
-
-        # Raise an exception if the account_config comes back empty
-        if account_config == []:
-            raise FileNotFoundError(
-                'The account_config is an empty []. A file named, "account-config.ini" was not found. This file must exist.'
-            )
-
-        # Validate the ini file.
-        self.validate_account_ini()
-
-        # Crosswalk data for the main player if it
-        # exists, otherwise throw an exception.
-        self.user = self.account_config.get('Users', 'self').split(',')
-
-        # If enemies isn't in the account-config.ini
-        # set it to None.
-        try:
-            self.user_enemies = [
-                enemy.split(',')
-                for enemy in self.account_config.get('Users', 'enemies').split('|')
-            ]
-        except (KeyError, configparser.NoOptionError):
-            self.user_enemies = None
-
-        # Set a log file (optional)
-        self.log = (
-            self.account_config.get('Dev', 'logfile')
-            if self.account_config.has_section('Dev')
-            else None
-        )
-
-        # Validate the data loaded from account-config.ini
-        self.validate_loaded_account_data()
-
-    def validate_account_ini(self):
-        """
-        Minimum validation for account-config.ini.
-        """
-        # Required sections
-        assert self.account_config.has_section(
-            'Users'
-        ), '[Users] is a required section in account-config.ini.'
-
-        # Required options
-        assert self.account_config.has_option(
-            'Users', 'self'
-        ), 'The "self" option is required in the [Users] section of account-config.ini.'
-
-    def validate_loaded_account_data(self):
-        """
-        Validate the data loaded from
-        account-config.ini.
-        """
-        assert (
-            len(self.user) == 3
-        ), 'The "self" option in the [Users] section should have an id, name, and path to user config separated by commas.'
-
-        user_ids = set([])
-        main_user_id = self.user[0]
-        user_ids.add(main_user_id)
-
-        if self.user_enemies:
-            i = 1  # Self, already added
-            for enemy in self.user_enemies:
-                user_ids.add(enemy[0])
-                assert (
-                    len(enemy) == 3
-                ), 'The "enemies" option in account-config.ini is not set correctly.'
-                i += 1
-            assert len(user_ids) == i, 'Every user ID must be unique.'
 
     def file_extension(self, string):
         """
@@ -654,7 +593,13 @@ class SavingsRate:
         Returns:
             Set of accounts used for tracking savings.
         """
-        return set(self.config.user_config.get('Sources', 'taxes_and_fees').split(','))
+        # Get taxes_and_fees from TinyDB configuration
+        # Note: taxes_and_fees is always a string after load_user_config() processing
+        taxes_and_fees = self.config.taxes_and_fees
+        if taxes_and_fees and isinstance(taxes_and_fees, str):
+            return set(taxes_and_fees.split(','))
+        else:
+            return set()
 
     def get_monthly_data(self):
         """
@@ -992,7 +937,7 @@ class Plot:
             '#810F7C',
         ]
 
-    def plot_savings_rates(self, monthly_rates, embed=False):
+    def plot_savings_rates(self, monthly_rates, embed=False, output_path=None):
         """
         Plots the monthly savings rates for a period of time.
 
@@ -1003,6 +948,10 @@ class Plot:
 
             embed, boolean defaults to False. Setting to true returns a
             plot for embedding in a web application.
+
+            output_path, string defaults to None. If provided, specifies
+            the path where the HTML file should be saved. If None, defaults
+            to "savings-rates.html".
 
         Returns:
             None
@@ -1037,7 +986,15 @@ class Plot:
                 percent_fi_x.append(data[0])
 
         # Output to static HTML file
-        output_file("savings-rates.html", title="Monthly Savings Rates")
+        if output_path is None:
+            output_path = "savings-rates.html"
+
+        # Ensure output directory exists
+        output_dir = os.path.dirname(output_path)
+        if output_dir and not os.path.exists(output_dir):
+            os.makedirs(output_dir, exist_ok=True)
+
+        output_file(output_path, title="Monthly Savings Rates")
 
         # Create a plot with a title and axis labels
         p = figure(

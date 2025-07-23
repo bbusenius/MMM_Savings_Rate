@@ -1,6 +1,17 @@
 # MMM Savings Rate
 
-MMM Savings Rate is a tool that allows users to calculate and track their monthly savings rates over time. It was developed using functions from the [FI module](https://github.com/bbusenius/FI) and plots savings rates using [Bokeh](https://bokeh.org/). Users simply enter their savings and income data into a spreadsheet. Unique spreadsheet column headers are mapped to the application through user configuration files, allowing the utility to be used with any custom spreadsheet. When the simulation runs, the user's monthly savings rates are plotted on a line graph.
+MMM Savings Rate is a tool that allows users to calculate and track their monthly savings rates over time. It was developed using functions from the [FI module](https://github.com/bbusenius/FI) and plots savings rates using [Bokeh](https://bokeh.org/). 
+
+**Key Features:**
+- Parse Excel (.xlsx) and CSV spreadsheets with flexible column mapping
+- Interactive web-based visualizations with Bokeh
+- JSON-based configuration using TinyDB for easy management
+- CLI commands for configuration management
+- Optional FRED integration for US average savings rate comparison
+- "Enemy" mode for competitive savings rate tracking
+- Python 3.10+ support with automated code quality checks
+
+Users simply enter their savings and income data into a spreadsheet. Unique spreadsheet column headers are mapped to the application through a JSON configuration file, allowing the utility to be used with any custom spreadsheet. When the simulation runs, the user's monthly savings rates are plotted on an interactive line graph.
 
 ![Example savings rates plotted](https://github.com/bbusenius/MMM_Savings_Rate/raw/master/docs/screenshot.png)
 
@@ -18,7 +29,18 @@ pip install git+https://github.com/bbusenius/MMM_Savings_Rate.git#egg=mmm_saving
 ```
 ### For developers
 
+```bash
+# Clone and install in development mode
+git clone https://github.com/bbusenius/MMM_Savings_Rate.git
+cd MMM_Savings_Rate
+pip install -e .
+
+# Install development dependencies for linting
+pip install -r requirements-dev.txt
 ```
+
+Or install directly from GitHub:
+```bash
 pip install -e git+https://github.com/bbusenius/MMM_Savings_Rate.git#egg=mmm_savings_rate
 ```
 ## Setting up the application
@@ -26,10 +48,9 @@ pip install -e git+https://github.com/bbusenius/MMM_Savings_Rate.git#egg=mmm_sav
 In order to get things going, you'll only need to take the following steps:
 
 1. Setup a directory of spreadsheet files with the financial data needed to run the simulation.
-2. Configuration:
-  - Create an account-config.ini with user information.
-  - Create a config.ini with personal settings and column mappings.
-3. Run the simulation command with a path to your configuration files.
+2. Configuration: The application automatically creates a JSON configuration file at `~/.mmm_savings_rate/db.json` with default settings.
+3. Customize your configuration using the CLI commands or by editing the JSON file directly.
+4. Run the simulation command.
 
 ### Spreadsheet files
 MMM Savings Rate was designed to be flexible in order to work with a variety of spreadsheets. At the moment, spreadsheets must be saved as .xlsx or .csv files, however, column headers can be unique, so it doesn't matter what labels you use to categorize things. To get started you'll need financial data for both **income** and **savings**.
@@ -49,38 +70,70 @@ This data can exist in a single spreadsheet with other financial data or it can 
 
 ### Configuration
 
-In order to run the simulation the following two files are required:
+MMM Savings Rate uses a single JSON configuration file to manage all settings. The application automatically creates and manages this file at `~/.mmm_savings_rate/db.json`.
 
-1. account-config.ini - the configuration for users. Think of this as a listing of users. Each user has an id, name, and a link to his or her personal configuration.
-2. config.ini - the configuration for the main user. Think of this as all of your personal settings.
+#### Automatic Configuration Setup
 
-*Optional, "enemy" config files can be named however you like, e.g. config-spouse.ini. These should be setup in a similar fashion as config.ini and they should be listed as pipe separated groupings under "enemies" in account-config.ini.*
+When you first run the application, it will automatically:
+1. Create the configuration directory at `~/.mmm_savings_rate/`
+2. Initialize a `db.json` file with default settings
+3. Set up error logging to `~/.mmm_savings_rate/error.log`
 
-#### account-config.ini
-A file must exist with the name `account-config.ini`. An example account-config.ini might look like this:
+#### Configuration Management
 
+You can manage your configuration in two ways:
+
+**Option 1: CLI Commands (Recommended)**
+```bash
+# View current configuration
+sr-show-config
+
+# Update a setting
+sr-update-setting main_user_settings pay "/path/to/income.xlsx"
+sr-update-setting main_user_settings savings "/path/to/savings.xlsx"
+
+# Validate configuration
+sr-validate-config
 ```
-[Users]
-; Unique ID, name, and config file name for user.
-self = 1,My name,config.ini
 
-; Unique ID, name, and pipe separated list of config
-; file names for user's enemies.
-enemies = 2,Joe,config-spouse.ini|3,Brother,config-brother.ini
+**Option 2: Direct JSON Editing**
+You can directly edit the `~/.mmm_savings_rate/db.json` file. Here's an example configuration:
+
+```json
+{
+  "main_user_settings": {
+    "pay": "/path/to/income.xlsx",
+    "pay_date": "Date",
+    "gross_income": "Gross Pay",
+    "employer_match": "Employer Match",
+    "taxes_and_fees": ["OASDI", "Medicare", "Federal Withholding", "State Tax", "FICA"],
+    "savings": "/path/to/savings.xlsx",
+    "savings_date": "Date",
+    "savings_accounts": ["Vanguard Brokerage", "Vanguard 403b", "Vanguard Roth"],
+    "notes": "Notes",
+    "show_average": true,
+    "war": "off",
+    "fred_url": "https://api.stlouisfed.org/fred/series/observations?series_id=PSAVERT&file_type=json",
+    "fred_api_key": "",
+    "goal": 70.0,
+    "fi_number": 1000000,
+    "total_balances": "Total Balance",
+    "percent_fi_notes": "Total Balance Notes"
+  },
+  "users": [
+    {
+      "_id": 1,
+      "name": "User",
+      "config_ref": "main_user_settings"
+    }
+  ],
+  "enemy_settings": []
+}
 ```
-
-The `[Users]` section is required. The "self" field represents the main user (you). This field should contain a comma separated list with a unique numerical ID, followed by a name, and the name of a main user config file.
-
-The "enemies" field is optional. If it's being used, it should be setup the same as the self field, however, if more than one enemy exists, this can be a pipe separated list of comma separated values.
-
-#### config.ini
-The `config.ini` file is the second configuration file. This file is required. It contains all of your personal settings and spreadsheet mappings.
-
-[Please look at this example](https://github.com/bbusenius/MMM_Savings_Rate/blob/master/config/config-example.ini).
 
 ##### Main settings
 
-The majority of the main settings are listed under `[Sources]`. Settings include:
+The majority of the main settings are listed under `main_user_settings`. Settings include:
 
 - **pay** - a full path to your income spreadsheet.
 - **pay_date** - the name of a column header for the dates of income or payment transactions.
@@ -124,7 +177,7 @@ A goal can be added to your plot as well.
 
 ###### % FI
 
-If you want to plot your progress towards FI as a percentage of your FI number, you can enable this with the following settings in your `config.ini`:
+If you want to plot your progress towards FI as a percentage of your FI number, you can enable this with the following settings in your `db.json`:
 
 - **fi_number** - your FI number.
 - **total_balances** - a spreadsheet heading that maps to a column where you track the total monthly balance of all your accounts.
@@ -136,19 +189,162 @@ This doesn't take into account liabilities so, if you have them, you can just as
 
 ### Running the simulation
 
-Once you have your spreadsheet and your configuration files ready to go, you can run the application. Just open a terminal and type the command:
+Once you have your spreadsheet files ready and have configured your settings, you can run the application:
 
+1. **First run**: The application will automatically create the configuration file with defaults:
+   ```bash
+   savingsrates
+   ```
+
+2. **Configure your settings** using CLI commands:
+   ```bash
+   # Update file paths to point to your spreadsheets
+   sr-update-setting main_user_settings pay "/path/to/your/income.xlsx"
+   sr-update-setting main_user_settings savings "/path/to/your/savings.xlsx"
+   
+   # Update column mappings as needed
+   sr-update-setting main_user_settings savings_accounts '["Account1", "Account2"]'
+   ```
+
+3. **Run the application**:
+   ```bash
+   savingsrates
+   ```
+
+When you run the command, a plot of your monthly savings rates will open in a browser window.
+
+#### CLI Options
+
+The `savingsrates` command supports the following options:
+
+- `-u, --user USER_ID` - Specify which user to analyze (default: 1)
+- `-o, --output OUTPUT_PATH` - Specify where to save the HTML plot file (default: savings-rates.html)
+
+> **Note:** The `--output` option is designed to support future graphical application development while maintaining full CLI compatibility. This allows the same core functionality to be used in both command-line and GUI contexts.
+
+**Usage Examples:**
+```bash
+# Generate plot with default settings (saves to savings-rates.html)
+savingsrates
+
+# Analyze a different user and save to a custom location
+savingsrates --user 2 --output my-savings-report.html
+
+# Save plot to a specific directory (directories will be created if needed)
+savingsrates -o ~/.mmm_savings_rate/plots/monthly-report.html
+
+# Save to an absolute path
+savingsrates -o /tmp/reports/savings-$(date +%Y%m%d).html
+
+# Get help and see all available options
+savingsrates --help
 ```
-savingsrates -p /home/joe_mustachian/Documents/Code/Projects/MMM_Savings_Rate/config/
-```
-The -p flag should specify the full path to your directory of configuration files. When you run the command a plot of your monthly savings rates should open in a browser window.
+
+#### CLI Management Commands
+
+The application now includes dedicated CLI commands for configuration management:
+
+- `sr-show-config` - Display current configuration
+- `sr-validate-config` - Validate configuration and report any errors
+- `sr-update-setting <table> <field> <value>` - Update specific settings
 
 ## Requirements
 
-This utility runs on python 3.x. All additional dependencies should be automatically downloaded and included during installation. If you'd like to see all of what will be installed look at [setup.py](https://github.com/bbusenius/MMM_Savings_Rate/blob/master/setup.py) and [requirements.txt](https://github.com/bbusenius/MMM_Savings_Rate/blob/master/requirements.txt).
+This utility requires **Python 3.10 or higher** (tested on Python 3.10, 3.11, and 3.12). All additional dependencies should be automatically downloaded and included during installation. 
 
-## Running tests
+### Dependencies
+- **Runtime dependencies**: See [requirements.txt](https://github.com/bbusenius/MMM_Savings_Rate/blob/master/requirements.txt)
+- **Development dependencies**: See [requirements-dev.txt](https://github.com/bbusenius/MMM_Savings_Rate/blob/master/requirements-dev.txt) (includes linting tools: flake8, black, isort)
+- **Build configuration**: See [pyproject.toml](https://github.com/bbusenius/MMM_Savings_Rate/blob/master/pyproject.toml)
 
+## Development
+
+### Documentation
+
+This project uses Sphinx to generate documentation hosted on [Read the Docs](https://mmm-savings-rate.readthedocs.io/).
+
+The documentation is automatically generated from this README file. To update the documentation:
+
+**Prerequisites:**
+- Install [pandoc](https://pandoc.org/installing.html) for converting Markdown to reStructuredText
+
+**Process:**
+1. **Update this README.md** with any changes
+2. **Convert to Sphinx format**:
+   ```bash
+   cd docs
+   make update-readme  # Converts README.md to index.rst using pandoc
+   make html          # Builds the documentation (optional - for local preview)
+   ```
+
+The documentation will automatically rebuild on Read the Docs when changes are pushed to the repository.
+
+### Running tests
+
+```bash
+python -m unittest discover tests -p 'test_*.py'
 ```
-python3 -m unittest discover tests -p 'test_*.py'
+
+### Code Quality and Linting
+
+This project uses automated code formatting and linting:
+
+```bash
+# Install development dependencies
+pip install -r requirements-dev.txt
+
+# Check code formatting
+black --check .
+
+# Format code automatically
+black .
+
+# Check import sorting
+isort --check-only .
+
+# Fix import sorting
+isort .
+
+# Run linting
+flake8 .
+
+# Run all checks (same as CI)
+flake8 . && black --check . && isort --check-only .
 ```
+
+### Adding Enemies to db.json
+
+To add an enemy for competitive plotting, edit `db.json` by adding entries to the `enemy_settings` and `users` tables. Ensure the `_id` is unique and matches between tables. Example:
+
+```json
+"enemy_settings": [
+  {
+    "_id": 2,
+    "pay": "/path/to/your/income-joe.xlsx",
+    "pay_date": "Date",
+    "gross_income": "Gross Pay",
+    "employer_match": "Employer Match",
+    "taxes_and_fees": ["Federal Tax", "State Tax"],
+    "savings": "/path/to/your/savings-joe.xlsx",
+    "savings_date": "Date",
+    "savings_accounts": ["Savings Account"],
+    "notes": "",
+    "show_average": true,
+    "war": "on",
+    "fred_url": "https://api.stlouisfed.org/fred/series/observations?series_id=PSAVERT&file_type=json",
+    "fred_api_key": "",
+    "goal": null,
+    "fi_number": null,
+    "total_balances": "",
+    "percent_fi_notes": ""
+  }
+],
+"users": [
+  {"_id": 1, "name": "User", "config_ref": "main_user_settings"},
+  {"_id": 2, "name": "Joe", "config_ref": "enemy_2"}
+]
+```
+
+Ensure the `config_ref` in `users` (e.g., "enemy_2") uniquely identifies the enemy's settings in `enemy_settings`.
+
+**Warning**: Maintain JSON validity during manual edits. Use `sr-validate-config` to check for errors.

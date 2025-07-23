@@ -1,158 +1,35 @@
-import configparser
+import json
+import os
+import shutil
+import tempfile
 import unittest
+from pathlib import Path
 from unittest import mock
 
-from savings_rate import (
-    REQUIRED_INI_ACCOUNT_OPTIONS,
-    REQUIRED_INI_USER_OPTIONS,
-    SavingsRate,
-    SRConfig,
-)
+from savings_rate import SavingsRate, SRConfig
 
 
-def return_bad_config():
+class TestSRConfig(unittest.TestCase):
     """
-    Return a bad account-config.ini.
-    """
-    return SRConfig(
-        'tests/test_config/',
-        'config-test.ini',
-        test=True,
-        test_file='account-config-test-bad.ini',
-    )
-
-
-class TestSRConfigIni(unittest.TestCase):
-    """
-    Test the SRConfig class with .ini files.
+    Test the SRConfig class with TinyDB configuration.
     """
 
     def setUp(self):
-        self.config = SRConfig('tests/test_config/', 'config-test.ini')
+        self.config = SRConfig(user_id=1)
         self.sr = SavingsRate(self.config)
-        self.config_missing = SRConfig(
-            'tests/test_config/', 'config-missing-values.ini'
-        )
-        self.sr_missing_config = SavingsRate(self.config_missing)
 
-    def test_load_account_config_without_ini(self):
-        """
-        Test the loading of account_config.ini.
-        """
-        # Load the config
-        config = self.config
+    def tearDown(self):
+        # Close database connections to prevent ResourceWarnings
+        if hasattr(self, 'config'):
+            self.config.close()
 
-        # Unset the conf_dir path so the account_config.ini won't be found
-        config.user_conf_dir = ''
-
-        self.assertRaises(FileNotFoundError, config.load_account_config_from_ini)
-
-    def test_load_account_config_without_section(self):
+    def test_config_initialization(self):
         """
-        Load an account config without the required [Users] section.
+        Test that SRConfig initializes correctly with a user ID.
         """
-        config = self.config
-        config.account_config.remove_section('Users')
-        self.assertRaises(
-            configparser.NoSectionError, config.account_config.get, 'Users', 'self'
-        )
-
-    def test_load_account_config_without_option(self):
-        """
-        Load a config option without the required "self" option.
-        """
-        config = self.config
-        config.account_config.remove_option('Users', 'self')
-        self.assertRaises(
-            configparser.NoOptionError, config.account_config.get, 'Users', 'self'
-        )
-
-    def test_required_account_sections(self):
-        """
-        A missing required section in account-config.ini
-        should throw an assertion error.
-        """
-        for section in REQUIRED_INI_ACCOUNT_OPTIONS:
-            config = self.config
-            config.account_config.remove_section(section)
-            self.assertRaises(AssertionError, config.validate_account_ini)
-
-    def test_required_account_options(self):
-        """
-        A missing required option in account-config.ini
-        should throw an assertion error.
-        """
-        for section in REQUIRED_INI_ACCOUNT_OPTIONS:
-            for option in REQUIRED_INI_ACCOUNT_OPTIONS[section]:
-                config = self.config
-                config.account_config.remove_option(section, option)
-                self.assertRaises(AssertionError, config.validate_account_ini)
-
-    def test_load_account_config_with_good_ini(self):
-        """
-        Load a good account-config.ini.
-        """
-        config = self.config
-
-        self.assertEqual(
-            len(config.user),
-            3,
-            'The "self" option in the [Users] section should have an id, name, and path to user config separated by commas.',
-        )
-        user_ids = set([])
-        main_user_id = config.user[0]
-        user_ids.add(main_user_id)
-
-        if config.war_mode:
-            for enemy in config.user_enemies:
-                user_ids.add(enemy[0])
-                self.assertEqual(
-                    len(enemy),
-                    3,
-                    'If "war" is on. The "enemies" option must be se in the account-config.ini.',
-                )
-            self.assertEqual(len(user_ids), 3, 'Every user ID must be unique.')
-
-    def test_load_account_config_with_bad_ini(self):
-        """
-        Load a poorly formed account-config.ini.
-        """
-        self.assertRaises(AssertionError, return_bad_config)
-
-    def test_load_account_config_without_enemies(self):
-        """
-        Loading an account_config.ini wout enemies
-        shouldn't blow up.
-        """
-        config = SRConfig(
-            'tests/test_config/',
-            'config-test.ini',
-            test=True,
-            test_file='account-config-test-no-enemies.ini',
-        )
-
-        self.assertEqual(config.user_enemies, None)
-
-    def test_required_user_sections(self):
-        """
-        A missing required section in config.ini
-        should throw an assertion error.
-        """
-        for section in REQUIRED_INI_USER_OPTIONS:
-            config = self.config
-            config.user_config.remove_section(section)
-            self.assertRaises(AssertionError, config.validate_user_ini)
-
-    def test_required_user_options(self):
-        """
-        A missing required option in config.ini
-        should throw an assertion error.
-        """
-        for section in REQUIRED_INI_USER_OPTIONS:
-            for option in REQUIRED_INI_USER_OPTIONS[section]:
-                config = self.config
-                config.user_config.remove_option(section, option)
-                self.assertRaises(AssertionError, config.validate_user_ini)
+        # Test passes if config initializes without errors
+        self.assertIsNotNone(self.config)
+        self.assertEqual(self.config.user_id, 1)
 
     def test_file_extension(self):
         val1 = self.sr.config.file_extension('test.txt')
@@ -163,85 +40,389 @@ class TestSRConfigIni(unittest.TestCase):
         self.assertEqual(val2, '.csv')
         self.assertEqual(val3, '')
 
-    def test_load_notes_config(self):
-        self.config.load_notes_config()
-        self.assertEqual(self.sr.config.notes, 'My Notes')
-        self.assertEqual(self.sr.config.percent_fi_notes, '% FI Notes')
-        self.config_missing.load_notes_config()
-        self.assertEqual(self.sr_missing_config.config.notes, '')
-        self.assertEqual(self.sr_missing_config.config.percent_fi_notes, '')
-
-    def test_goal_is_set_to_numeric_value(self):
-        self.sr.config.load_goal_config()
-        self.assertEqual(self.sr.config.goal, 70)
-
-    def test_goal_is_set_to_false_when_no_option_is_provided(self):
-        self.sr_missing_config.config.load_goal_config()
-        self.assertEqual(self.sr_missing_config.config.goal, False)
-
     def test_goal_and_fi_number_when_non_numeric_value_is_provided(self):
         with mock.patch('builtins.print') as mock_print:
-            config_bad = SRConfig('tests/test_config/', 'config-bad-values.ini')
-            self.assertEqual(config_bad.goal, False)
-            self.assertEqual(config_bad.fi_number, False)
+            # Create a temporary TinyDB config with bad values
+            temp_dir = tempfile.mkdtemp()
+            test_db_path = Path(temp_dir) / "test_bad_values.json"
 
-            assert mock_print.call_count == 2
+            bad_config = {
+                "main_user_settings": {
+                    "pay": "csv/income-example.csv",  # Use existing test file
+                    "pay_date": "Date",
+                    "gross_income": "Gross Pay",
+                    "employer_match": "Employer Match",
+                    "taxes_and_fees": ["OASDI", "Medicare"],
+                    "savings": "csv/savings-example.csv",  # Use existing test file
+                    "savings_date": "Date",
+                    "savings_accounts": ["Scottrade", "Vanguard 403b", "Vanguard Roth"],
+                    "notes": "Notes",
+                    "show_average": True,
+                    "war": "off",
+                    "fred_url": "",
+                    "fred_api_key": "",
+                    "goal": "Not a number",  # Bad value
+                    "fi_number": "Also not a number",  # Bad value
+                    "total_balances": "",
+                    "percent_fi_notes": "",
+                },
+                "users": [
+                    {"_id": 1, "name": "TestUser", "config_ref": "main_user_settings"}
+                ],
+                "enemy_settings": [],
+            }
 
-            # Can't use mock_print.assert_called_once_with because there are two
-            # print statments
-            mock_print.call_args_list[0][0][
-                0
-            ] == 'The value for \'goal\' should be numeric, e.g. 65.'
-            mock_print.call_args_list[1][0][
-                0
-            ] == 'The value for \'fi_number\' should be numeric, e.g. 1000000.'
+            with open(test_db_path, 'w') as f:
+                json.dump(bad_config, f, indent=2)
 
-    def test_show_average_normally(self):
-        self.sr.config.load_show_average_config()
-        self.assertEqual(self.sr.config.show_average, True)
+            try:
+                config_bad = SRConfig(test=True, test_file=str(test_db_path), user_id=1)
+                self.assertEqual(config_bad.goal, False)
+                self.assertEqual(config_bad.fi_number, False)
 
-    def test_show_average_is_set_to_true_when_no_option_is_provided(self):
-        self.sr_missing_config.config.load_show_average_config()
-        self.assertEqual(self.sr_missing_config.config.show_average, True)
+                self.assertEqual(mock_print.call_count, 2)
 
-    def test_load_fi_number_config_is_set_to_numeric_value(self):
-        self.sr.config.load_fi_number_config()
-        self.assertEqual(self.sr.config.fi_number, 750000)
+                # Check that the correct error messages were printed
+                self.assertEqual(
+                    mock_print.call_args_list[0][0][0],
+                    "The value for 'goal' should be numeric, e.g. 65.",
+                )
+                self.assertEqual(
+                    mock_print.call_args_list[1][0][0],
+                    "The value for 'fi_number' should be numeric, e.g. 65.",
+                )
+            finally:
+                # Close SRConfig to prevent ResourceWarnings
+                if config_bad is not None:
+                    config_bad.close()
 
-    def test_fi_number_is_set_to_false_when_no_option_is_provided(self):
-        self.sr_missing_config.config.load_fi_number_config()
-        self.assertEqual(self.sr_missing_config.config.fi_number, False)
-
-    def test_load_total_balances_config(self):
-        self.sr.config.load_total_balances_config()
-        self.assertEqual(self.sr.config.total_balances, 'Balances')
-
-    def test_load_total_balances_config_with_no_option_error(self):
-        self.sr_missing_config.config.load_total_balances_config()
-        self.assertEqual(self.sr_missing_config.config.total_balances, False)
+                # Clean up temporary files
+                if temp_dir and os.path.exists(temp_dir):
+                    shutil.rmtree(temp_dir)
 
 
 class TestFREDConfig(unittest.TestCase):
+    """Test FRED configuration loading and validation."""
+
     def setUp(self):
-        self.config = SRConfig('tests/test_config/', 'config-test.ini')
+        """Set up test fixtures with TinyDB configs for FRED testing."""
+        # Create config with FRED settings
+        self.temp_dir = tempfile.mkdtemp()
+        self.test_db_path = Path(self.temp_dir) / "test_fred.json"
+
+        fred_config = {
+            "main_user_settings": {
+                "pay": "csv/income-example.csv",
+                "pay_date": "Date",
+                "gross_income": "Gross Pay",
+                "employer_match": "Employer Match",
+                "taxes_and_fees": ["OASDI", "Medicare"],
+                "savings": "csv/savings-example.csv",
+                "savings_date": "Date",
+                "savings_accounts": ["Scottrade", "Vanguard 403b", "Vanguard Roth"],
+                "notes": "Notes",
+                "show_average": True,
+                "war": "off",
+                "fred_url": "https://fred-test.com",
+                "fred_api_key": "test-api-key",
+                "goal": False,
+                "fi_number": False,
+                "total_balances": False,
+                "percent_fi_notes": "",
+            },
+            "users": [
+                {"_id": 1, "name": "TestUser", "config_ref": "main_user_settings"}
+            ],
+            "enemy_settings": [],
+        }
+
+        with open(self.test_db_path, 'w') as f:
+            json.dump(fred_config, f, indent=2)
+
+        # Create config with missing FRED settings
+        self.test_db_path_no_fred = Path(self.temp_dir) / "test_no_fred.json"
+
+        no_fred_config = {
+            "main_user_settings": {
+                "pay": "csv/income-example.csv",
+                "pay_date": "Date",
+                "gross_income": "Gross Pay",
+                "employer_match": "Employer Match",
+                "taxes_and_fees": ["OASDI", "Medicare"],
+                "savings": "csv/savings-example.csv",
+                "savings_date": "Date",
+                "savings_accounts": ["Scottrade", "Vanguard 403b", "Vanguard Roth"],
+                "notes": "Notes",
+                "show_average": True,
+                "war": "off",
+                "fred_url": "",
+                "fred_api_key": "",
+                "goal": False,
+                "fi_number": False,
+                "total_balances": False,
+                "percent_fi_notes": "",
+            },
+            "users": [
+                {"_id": 1, "name": "TestUser", "config_ref": "main_user_settings"}
+            ],
+            "enemy_settings": [],
+        }
+
+        with open(self.test_db_path_no_fred, 'w') as f:
+            json.dump(no_fred_config, f, indent=2)
+
+        # Create SRConfig instances
+        self.config = SRConfig(test=True, test_file=str(self.test_db_path), user_id=1)
         self.sr = SavingsRate(self.config)
         self.config_missing = SRConfig(
-            'tests/test_config/', 'config-missing-values.ini'
+            test=True, test_file=str(self.test_db_path_no_fred), user_id=1
         )
         self.sr_no_fred = SavingsRate(self.config_missing)
 
+    def tearDown(self):
+        """Clean up test fixtures."""
+        # Close database connections to prevent ResourceWarnings
+        if hasattr(self, 'config'):
+            self.config.close()
+        if hasattr(self, 'config_missing'):
+            self.config_missing.close()
+
+        # Clean up temporary files
+        import os
+        import shutil
+
+        if hasattr(self, 'temp_dir') and os.path.exists(self.temp_dir):
+            shutil.rmtree(self.temp_dir)
+
     def test_load_fred_config(self):
-        self.sr.config.load_fred_url_config()
-        self.sr.config.load_fred_api_key_config()
+        """Test loading FRED configuration from TinyDB."""
         has_fred = self.sr.config.has_fred()
         self.assertEqual(self.sr.config.fred_url, 'https://fred-test.com')
         self.assertEqual(self.sr.config.fred_api_key, 'test-api-key')
         self.assertEqual(has_fred, True)
 
     def test_load_fred_with_no_fred_settings(self):
-        self.sr_no_fred.config.load_fred_url_config()
-        self.sr_no_fred.config.load_fred_api_key_config()
+        """Test handling of missing FRED settings."""
         has_fred = self.sr_no_fred.config.has_fred()
         self.assertEqual(self.sr_no_fred.config.fred_url, '')
         self.assertEqual(self.sr_no_fred.config.fred_api_key, '')
         self.assertEqual(has_fred, False)
+
+
+class TestConfigurationFeatures(unittest.TestCase):
+    """Test various configuration features and their behavior."""
+
+    def setUp(self):
+        """Set up test fixtures for configuration feature testing."""
+        self.temp_dir = tempfile.mkdtemp()
+        self.test_db_path = Path(self.temp_dir) / "test_config_features.json"
+
+        # Base config with all features
+        self.base_config = {
+            "main_user_settings": {
+                "pay": "csv/income-example.csv",
+                "pay_date": "Date",
+                "gross_income": "Gross Pay",
+                "employer_match": "Employer Match",
+                "taxes_and_fees": ["OASDI", "Medicare"],
+                "savings": "csv/savings-example.csv",
+                "savings_date": "Date",
+                "savings_accounts": ["Scottrade", "Vanguard 403b", "Vanguard Roth"],
+                "notes": "Test notes content",
+                "show_average": True,
+                "war": "off",
+                "fred_url": "",
+                "fred_api_key": "",
+                "goal": 1000000,
+                "fi_number": 25,
+                "total_balances": True,
+                "percent_fi_notes": "FI calculation notes",
+            },
+            "users": [
+                {"_id": 1, "name": "TestUser", "config_ref": "main_user_settings"}
+            ],
+            "enemy_settings": [],
+        }
+
+    def tearDown(self):
+        """Clean up test fixtures."""
+        # Close any config instances
+        if hasattr(self, 'config'):
+            self.config.close()
+
+        if hasattr(self, 'temp_dir') and os.path.exists(self.temp_dir):
+            shutil.rmtree(self.temp_dir)
+
+    def test_load_notes_config(self):
+        """Test that notes configuration loads correctly."""
+        with open(self.test_db_path, 'w') as f:
+            json.dump(self.base_config, f, indent=2)
+
+        config = SRConfig(test=True, test_file=str(self.test_db_path), user_id=1)
+        try:
+            self.assertEqual(config.notes, "Test notes content")
+        finally:
+            config.close()
+
+    def test_load_notes_config_default(self):
+        """Test that notes default to empty string when missing."""
+        config_no_notes = self.base_config.copy()
+        del config_no_notes["main_user_settings"]["notes"]
+
+        with open(self.test_db_path, 'w') as f:
+            json.dump(config_no_notes, f, indent=2)
+
+        config = SRConfig(test=True, test_file=str(self.test_db_path), user_id=1)
+        try:
+            self.assertEqual(config.notes, "")
+        finally:
+            config.close()
+
+    def test_load_show_average_config(self):
+        """Test that show_average configuration loads correctly."""
+        # Test True value
+        with open(self.test_db_path, 'w') as f:
+            json.dump(self.base_config, f, indent=2)
+
+        config = SRConfig(test=True, test_file=str(self.test_db_path), user_id=1)
+        try:
+            self.assertEqual(config.show_average, True)
+        finally:
+            config.close()
+
+        # Test False value
+        config_false = self.base_config.copy()
+        config_false["main_user_settings"]["show_average"] = False
+
+        with open(self.test_db_path, 'w') as f:
+            json.dump(config_false, f, indent=2)
+
+        config = SRConfig(test=True, test_file=str(self.test_db_path), user_id=1)
+        try:
+            self.assertEqual(config.show_average, False)
+        finally:
+            config.close()
+
+    def test_load_show_average_config_default(self):
+        """Test that show_average defaults to True when missing."""
+        config_no_show_avg = self.base_config.copy()
+        del config_no_show_avg["main_user_settings"]["show_average"]
+
+        with open(self.test_db_path, 'w') as f:
+            json.dump(config_no_show_avg, f, indent=2)
+
+        config = SRConfig(test=True, test_file=str(self.test_db_path), user_id=1)
+        try:
+            self.assertEqual(config.show_average, True)
+        finally:
+            config.close()
+
+    def test_load_total_balances_config(self):
+        """Test that total_balances configuration loads correctly."""
+        with open(self.test_db_path, 'w') as f:
+            json.dump(self.base_config, f, indent=2)
+
+        config = SRConfig(test=True, test_file=str(self.test_db_path), user_id=1)
+        try:
+            self.assertEqual(config.total_balances, True)
+        finally:
+            config.close()
+
+    def test_load_total_balances_config_default(self):
+        """Test that total_balances defaults to False when missing."""
+        config_no_total_balances = self.base_config.copy()
+        del config_no_total_balances["main_user_settings"]["total_balances"]
+
+        with open(self.test_db_path, 'w') as f:
+            json.dump(config_no_total_balances, f, indent=2)
+
+        config = SRConfig(test=True, test_file=str(self.test_db_path), user_id=1)
+        try:
+            self.assertEqual(config.total_balances, False)
+        finally:
+            config.close()
+
+    def test_load_percent_fi_notes_config(self):
+        """Test that percent_fi_notes configuration loads correctly."""
+        with open(self.test_db_path, 'w') as f:
+            json.dump(self.base_config, f, indent=2)
+
+        config = SRConfig(test=True, test_file=str(self.test_db_path), user_id=1)
+        try:
+            self.assertEqual(config.percent_fi_notes, "FI calculation notes")
+        finally:
+            config.close()
+
+    def test_load_percent_fi_notes_config_default(self):
+        """Test that percent_fi_notes defaults to empty string when missing."""
+        config_no_percent_fi_notes = self.base_config.copy()
+        del config_no_percent_fi_notes["main_user_settings"]["percent_fi_notes"]
+
+        with open(self.test_db_path, 'w') as f:
+            json.dump(config_no_percent_fi_notes, f, indent=2)
+
+        config = SRConfig(test=True, test_file=str(self.test_db_path), user_id=1)
+        try:
+            self.assertEqual(config.percent_fi_notes, "")
+        finally:
+            config.close()
+
+    def test_numeric_goal_config_various_formats(self):
+        """Test that goal loads correctly in various numeric formats."""
+        test_cases = [
+            (1000000, 1000000),  # int
+            (1000000.0, 1000000.0),  # float
+            ("1000000", 1000000),  # string int
+            ("1000000.5", 1000000.5),  # string float
+            (None, False),  # missing
+            ("invalid", False),  # non-numeric string
+        ]
+
+        for test_value, expected in test_cases:
+            with self.subTest(test_value=test_value, expected=expected):
+                config_test = self.base_config.copy()
+                if test_value is None:
+                    del config_test["main_user_settings"]["goal"]
+                else:
+                    config_test["main_user_settings"]["goal"] = test_value
+
+                with open(self.test_db_path, 'w') as f:
+                    json.dump(config_test, f, indent=2)
+
+                config = SRConfig(
+                    test=True, test_file=str(self.test_db_path), user_id=1
+                )
+                try:
+                    self.assertEqual(config.goal, expected)
+                finally:
+                    config.close()
+
+    def test_numeric_fi_number_config_various_formats(self):
+        """Test that fi_number loads correctly in various numeric formats."""
+        test_cases = [
+            (25, 25),  # int
+            (25.5, 25.5),  # float
+            ("25", 25),  # string int
+            ("25.5", 25.5),  # string float
+            (None, False),  # missing
+            ("invalid", False),  # non-numeric string
+        ]
+
+        for test_value, expected in test_cases:
+            with self.subTest(test_value=test_value, expected=expected):
+                config_test = self.base_config.copy()
+                if test_value is None:
+                    del config_test["main_user_settings"]["fi_number"]
+                else:
+                    config_test["main_user_settings"]["fi_number"] = test_value
+
+                with open(self.test_db_path, 'w') as f:
+                    json.dump(config_test, f, indent=2)
+
+                config = SRConfig(
+                    test=True, test_file=str(self.test_db_path), user_id=1
+                )
+                try:
+                    self.assertEqual(config.fi_number, expected)
+                finally:
+                    config.close()
