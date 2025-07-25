@@ -44,9 +44,15 @@ savingsrates = "sr_launcher:run"
 sr-show-config = "sr_launcher:show_config"
 sr-validate-config = "sr_launcher:validate_config"
 sr-update-setting = "sr_launcher:update_setting"
+mmm-savings-rate-gui = "gui:main"
+
+[project.optional-dependencies]
+gui = [
+    "toga",
+]
 
 [tool.setuptools]
-py-modules = ["savings_rate", "db_config", "sr_launcher"]
+py-modules = ["savings_rate", "db_config", "sr_launcher", "gui"]
 include-package-data = true
 
 [tool.setuptools.packages.find]
