@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "MMM_Savings_Rate"
-version = "1.1.0"
+version = "2.0.0"
 description = "An application that can parse spreadsheets in order to calculate and plot a user's monthly savings rate over time."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -40,11 +40,11 @@ Repository = "https://github.com/bbusenius/MMM_Savings_Rate.git"
 Issues = "https://github.com/bbusenius/MMM_Savings_Rate/issues"
 
 [project.scripts]
-savingsrates = "sr_launcher:run"
-sr-show-config = "sr_launcher:show_config"
-sr-validate-config = "sr_launcher:validate_config"
-sr-update-setting = "sr_launcher:update_setting"
-mmm-savings-rate-gui = "gui:main"
+savingsrates = "mmm_savings_rate.sr_launcher:run"
+sr-show-config = "mmm_savings_rate.sr_launcher:show_config"
+sr-validate-config = "mmm_savings_rate.sr_launcher:validate_config"
+sr-update-setting = "mmm_savings_rate.sr_launcher:update_setting"
+mmm-savings-rate-gui = "mmm_savings_rate.gui:run_gui"
 
 [project.optional-dependencies]
 gui = [
@@ -52,13 +52,9 @@ gui = [
 ]
 
 [tool.setuptools]
-py-modules = ["savings_rate", "db_config", "sr_launcher", "gui"]
+packages = ["mmm_savings_rate"]
+package-dir = {"" = "src"}
 include-package-data = true
-
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["*"]
-exclude = ["tests*", "venv*", ".venv*"]
 
 # Black formatting configuration
 [tool.black]
@@ -127,3 +123,82 @@ exclude_lines = [
     "raise AssertionError",
     "raise NotImplementedError",
 ]
+
+# Briefcase packaging configuration
+[tool.briefcase]
+project_name = "MMM Savings Rate"
+bundle = "com.savingsratewars"
+version = "2.0.0"
+description = "Personal finance application that calculates and visualizes monthly savings rates"
+author = "Brad Busenius"
+author_email = "bbusenius@gmail.com"
+license = {file = "LICENSE.txt"}
+url = "https://github.com/bbusenius/MMM_Savings_Rate"
+
+[tool.briefcase.app.mmm-savings-rate]
+formal_name = "MMM Savings Rate"
+description = "Personal finance application that calculates and visualizes monthly savings rates over time using spreadsheet data"
+icon = "src/mmm_savings_rate/resources/icon"
+long_description = """MMM Savings Rate is a personal finance application that helps users track their Financial Independence (FI) progress through interactive Bokeh visualizations. 
+
+Features:
+- Interactive GUI with configuration editing
+- Bokeh plot visualization of savings rates over time  
+- Read-only viewing of income and savings spreadsheet data
+- CLI commands for advanced usage
+- TinyDB configuration management
+- FRED API integration for US economic data
+"""
+
+# Entry point for GUI application  
+sources = ["src/mmm_savings_rate"]
+
+# Test configuration
+test_sources = ["tests"]
+
+# Include CSV example files and other resources
+resources = [
+    "csv",
+    "config"
+]
+
+# Python version requirement
+requires = [
+    "bokeh",
+    "diablo_python @ git+https://github.com/bbusenius/Diablo-Python.git#egg=diablo_python",
+    "fi @ git+https://github.com/bbusenius/FI.git#egg=FI", 
+    "openpyxl",
+    "pandas",
+    "python-dateutil",
+    "requests",
+    "tinydb",
+    "toga",
+    "."
+]
+
+test_requires = [
+    "pytest",
+    "pytest-asyncio"
+]
+
+[tool.briefcase.app.mmm-savings-rate.linux]
+requires = [
+    "toga-gtk~=0.4.7",
+]
+
+[tool.briefcase.app.mmm-savings-rate.linux.system.debian]
+revision = 1
+system_requires = [
+    "python3-dev",
+    "python3-pip",
+    "python3-venv",
+    "build-essential",
+    "libgirepository1.0-dev",
+    "libcairo2-dev",
+    "libpango1.0-dev",
+    "libgdk-pixbuf2.0-dev",
+    "libatk1.0-dev"
+]
+
+# Desktop integration
+desktop_file_name = "mmm-savings-rate"

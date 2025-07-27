@@ -6,6 +6,7 @@ displaying Bokeh plots in a WebView and providing configuration management.
 """
 
 import os
+import platform
 import subprocess
 from datetime import datetime
 from pathlib import Path
@@ -16,7 +17,8 @@ import toga
 from toga.style import Pack
 from toga.style.pack import COLUMN, ROW
 
-from db_config import DBConfigManager
+from .db_config import DBConfigManager
+from .savings_rate import Plot, SavingsRate, SRConfig
 
 
 class MMMSavingsRateApp(toga.App):
@@ -62,49 +64,26 @@ class MMMSavingsRateApp(toga.App):
         asyncio.create_task(self.plot_tab.refresh_plot())
 
     async def run_simulation(self, widget):
-        """Run the savings rate simulation using the existing CLI command."""
+        """Run the savings rate simulation using the existing CLI logic directly."""
         try:
             # Get GUI output path
             output_path = self.get_gui_output_path()
 
-            # Set environment variable to prevent Bokeh from opening browser
-            env = os.environ.copy()
-            env['BOKEH_BROWSER'] = 'none'
-
-            # Run the existing CLI command
-            result = subprocess.run(
-                ['savingsrates', '--output', output_path],
-                capture_output=True,
-                text=True,
-                cwd=os.getcwd(),
-                env=env,
+            config = SRConfig(user_id=1)
+            savings_rate = SavingsRate(config)
+            monthly_rates = savings_rate.get_monthly_savings_rates()
+            user_plot = Plot(savings_rate)
+            user_plot.plot_savings_rates(
+                monthly_rates, embed=True, output_path=output_path
             )
 
-            if result.returncode != 0:
-                # Parse error message and redirect to config tab
-                error_msg = (
-                    result.stderr.strip() if result.stderr else "Unknown error occurred"
-                )
-                await self.show_error_dialog("Simulation Error", [error_msg])
-                # Switch to Config tab if there's an error
-                self.tab_container.current_tab = self.tab_container.content[
-                    1
-                ]  # Config tab
-                return
-
-            # Simulation successful - HTML file should now exist
-
-        except FileNotFoundError:
-            await self.show_error_dialog(
-                "Command Not Found",
-                [
-                    "Could not find 'savingsrates' command. Make sure the package is installed properly."
-                ],
-            )
         except Exception as e:
-            await self.show_error_dialog(
-                "Simulation Error", [f"Unexpected error: {str(e)}"]
-            )
+            # Parse error message and redirect to config tab
+            error_msg = str(e)
+            await self.show_error_dialog("Simulation Error", [error_msg])
+            # Switch to Config tab if there's an error
+            self.tab_container.current_tab = self.tab_container.content[1]  # Config tab
+            return
 
     def get_gui_output_path(self) -> str:
         """Get the fixed output path for GUI plots."""
@@ -444,93 +423,122 @@ class ConfigTab:
 
             for key, field in self.form_fields.items():
                 value = settings.get(key, "")
-
-                if isinstance(field, toga.TextInput):
-                    # Handle array fields (taxes_and_fees, savings_accounts are arrays)
-                    if key in ["taxes_and_fees", "savings_accounts"]:
-                        if isinstance(value, list):
-                            field.value = ", ".join(str(item) for item in value)
-                        else:
-                            field.value = str(value) if value is not None else ""
-                    # Handle single column fields (notes, percent_fi_notes are single strings)
-                    elif key in ["notes", "percent_fi_notes"]:
-                        field.value = str(value) if value is not None else ""
-                    else:
-                        field.value = str(value) if value is not None else ""
-                elif isinstance(field, toga.MultilineTextInput):
-                    field.value = str(value) if value is not None else ""
-                elif isinstance(field, toga.Switch):
-                    # Handle war mode (string) vs show_average (boolean)
-                    if key == "war":
-                        field.value = str(value).lower() == "on"
-                    else:
-                        field.value = bool(value)
-                elif isinstance(field, toga.Selection):
-                    # Set selection value
-                    if str(value) in [str(item) for item in field.items]:
-                        field.value = str(value)
+                self._set_field_value(field, key, value)
 
         except Exception as e:
             print(f"Error loading config values: {e}")
+
+    def _set_field_value(self, field, key, value):
+        """Set a form field value based on field type and key."""
+        if isinstance(field, toga.TextInput):
+            self._handle_text_input(field, key, value)
+        elif isinstance(field, toga.MultilineTextInput):
+            self._handle_multiline_text_input(field, key, value)
+        elif isinstance(field, toga.Switch):
+            self._handle_switch(field, key, value)
+        elif isinstance(field, toga.Selection):
+            self._handle_selection(field, key, value)
+
+    def _handle_text_input(self, field, key, value):
+        """Handle TextInput field value setting."""
+        if key in ["taxes_and_fees", "savings_accounts"]:
+            # Handle array fields - convert to comma-separated string
+            if isinstance(value, list):
+                field.value = ", ".join(str(item) for item in value)
+            else:
+                field.value = str(value) if value is not None else ""
+        else:
+            # Handle all other text fields uniformly
+            field.value = str(value) if value is not None else ""
+
+    def _handle_multiline_text_input(self, field, key, value):
+        """Handle MultilineTextInput field value setting."""
+        field.value = str(value) if value is not None else ""
+
+    def _handle_switch(self, field, key, value):
+        """Handle Switch field value setting."""
+        if key == "war":
+            # War mode uses string "on"/"off" values
+            field.value = str(value).lower() == "on"
+        else:
+            # Other switches use boolean values
+            field.value = bool(value)
+
+    def _handle_selection(self, field, key, value):
+        """Handle Selection field value setting."""
+        if str(value) in [str(item) for item in field.items]:
+            field.value = str(value)
 
     def _get_form_values(self):
         """Get current values from form fields."""
         values = {}
 
         for key, field in self.form_fields.items():
-            if isinstance(field, toga.TextInput):
-                value = field.value.strip()
-
-                # Handle array fields (only taxes_and_fees and savings_accounts are arrays)
-                if key in ["taxes_and_fees", "savings_accounts"]:
-                    if value:
-                        values[key] = [
-                            item.strip() for item in value.split(",") if item.strip()
-                        ]
-                    else:
-                        values[key] = []
-                # Handle numeric fields
-                elif key in ["goal", "fi_number"]:
-                    values[key] = float(value) if value else None
-                else:
-                    values[key] = value
-
-            elif isinstance(field, toga.MultilineTextInput):
-                values[key] = field.value.strip()
-
-            elif isinstance(field, toga.Switch):
-                # Handle war mode (string) vs show_average (boolean)
-                if key == "war":
-                    values[key] = "on" if field.value else "off"
-                else:
-                    values[key] = field.value
-
-            elif isinstance(field, toga.Selection):
-                values[key] = field.value
+            values[key] = self._extract_field_value(field, key)
 
         return values
 
-    async def validate_config(self, widget):
-        """Validate the current configuration using existing CLI validation."""
-        try:
-            result = subprocess.run(
-                ['sr-validate-config'], capture_output=True, text=True
-            )
+    def _extract_field_value(self, field, key):
+        """Extract and convert a form field value to database format."""
+        if isinstance(field, toga.TextInput):
+            return self._extract_text_input_value(field, key)
+        elif isinstance(field, toga.MultilineTextInput):
+            return self._extract_multiline_text_input_value(field, key)
+        elif isinstance(field, toga.Switch):
+            return self._extract_switch_value(field, key)
+        elif isinstance(field, toga.Selection):
+            return self._extract_selection_value(field, key)
+        else:
+            return field.value
 
-            if result.returncode == 0:
+    def _extract_text_input_value(self, field, key):
+        """Extract and convert TextInput field value."""
+        value = field.value.strip()
+
+        if key in ["taxes_and_fees", "savings_accounts"]:
+            # Handle array fields - convert comma-separated string to list
+            if value:
+                return [item.strip() for item in value.split(",") if item.strip()]
+            else:
+                return []
+        elif key in ["goal", "fi_number"]:
+            # Handle numeric fields - convert to float or None
+            return float(value) if value else None
+        else:
+            # Handle regular text fields
+            return value
+
+    def _extract_multiline_text_input_value(self, field, key):
+        """Extract MultilineTextInput field value."""
+        return field.value.strip()
+
+    def _extract_switch_value(self, field, key):
+        """Extract Switch field value with special handling for war mode."""
+        if key == "war":
+            # War mode uses string "on"/"off" values
+            return "on" if field.value else "off"
+        else:
+            # Other switches use boolean values
+            return field.value
+
+    def _extract_selection_value(self, field, key):
+        """Extract Selection field value."""
+        return field.value
+
+    async def validate_config(self, widget):
+        """Validate the current configuration using direct validation logic."""
+        try:
+            # Use the validation logic directly
+            is_valid, errors = self.app.db_manager.validate_config()
+
+            if is_valid:
                 await self.app.main_window.dialog(
                     toga.InfoDialog("Validation", "✓ Configuration is valid")
                 )
             else:
-                error_msg = (
-                    result.stderr.strip() if result.stderr else result.stdout.strip()
-                )
-                await self.app.show_error_dialog("Configuration Errors", [error_msg])
+                error_messages = [f"- {error}" for error in errors]
+                await self.app.show_error_dialog("Configuration Errors", error_messages)
 
-        except FileNotFoundError:
-            await self.app.show_error_dialog(
-                "Command Not Found", ["Could not find 'sr-validate-config' command"]
-            )
         except Exception as e:
             await self.app.show_error_dialog("Validation Error", [str(e)])
 
@@ -711,8 +719,14 @@ class DataTab:
                 )
                 return
 
-            # Use xdg-open on Linux to open with default application
-            subprocess.run(['xdg-open', file_path], check=False)
+            # Open file with default application (cross-platform)
+            system = platform.system()
+            if system == 'Windows':
+                os.startfile(file_path)
+            elif system == 'Darwin':  # macOS
+                subprocess.run(['open', file_path], check=False)
+            else:  # Linux and other Unix-like systems
+                subprocess.run(['xdg-open', file_path], check=False)
 
         except Exception as e:
             await self.app.show_error_dialog(
@@ -735,10 +749,15 @@ class SavingsTab(DataTab):
 
 
 def main():
-    """Entry point for the GUI application."""
-    app = MMMSavingsRateApp('MMM Savings Rate', 'org.example.mmm_savings_rate')
-    return app.main_loop()
+    """Entry point for briefcase - returns app object."""
+    return MMMSavingsRateApp('MMM Savings Rate', 'com.savingsratewars')
+
+
+def run_gui():
+    """Entry point for console script - runs the application."""
+    app = main()
+    app.main_loop()
 
 
 if __name__ == '__main__':
-    main()
+    run_gui()

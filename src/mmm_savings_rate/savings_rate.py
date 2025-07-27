@@ -30,11 +30,11 @@ import pandas as pd
 import requests
 from bokeh.embed import components
 from bokeh.models import ColumnDataSource, DatetimeTickFormatter, HoverTool
-from bokeh.plotting import figure, output_file, show
+from bokeh.plotting import figure, output_file, save, show
 from dateutil import parser
 from file_parsing import are_numeric, clean_strings, is_number_of_some_sort
 
-from db_config import DBConfigManager
+from .db_config import DBConfigManager
 
 
 class SRConfig:
@@ -308,7 +308,7 @@ class SRConfig:
         Args:
             settings: Dict containing user settings from database.
         """
-        from db_config import REQUIRED_MAIN_USER_FIELDS
+        from .db_config import REQUIRED_MAIN_USER_FIELDS
 
         for field in REQUIRED_MAIN_USER_FIELDS:
             if field not in settings:
@@ -937,7 +937,9 @@ class Plot:
             '#810F7C',
         ]
 
-    def plot_savings_rates(self, monthly_rates, embed=False, output_path=None):
+    def plot_savings_rates(
+        self, monthly_rates, embed=False, output_path=None, no_browser=False
+    ):
         """
         Plots the monthly savings rates for a period of time.
 
@@ -952,6 +954,9 @@ class Plot:
             output_path, string defaults to None. If provided, specifies
             the path where the HTML file should be saved. If None, defaults
             to "savings-rates.html".
+
+            no_browser, boolean defaults to False. If True, saves HTML file
+            without opening browser (useful for testing).
 
         Returns:
             None
@@ -1121,8 +1126,17 @@ class Plot:
         # Show the results
         if embed is False:
             p.sizing_mode = "stretch_both"
-            show(p)
+            if no_browser:
+                save(p)
+            else:
+                show(p)
         else:
+            # For embed=True, still generate HTML file if output_path is provided
+            if output_path:
+                # Save as standalone HTML file for GUI use - must match CLI behavior
+                p.sizing_mode = "stretch_both"
+                # Use save() instead of show() to prevent browser opening
+                save(p)
             return components(p)
 
     def update_plot_for_fred(self, p, monthly_rates):

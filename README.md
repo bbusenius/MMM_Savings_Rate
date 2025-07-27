@@ -1,8 +1,10 @@
 # MMM Savings Rate
 
-MMM Savings Rate is a tool that allows users to calculate and track their monthly savings rates over time. It was developed using functions from the [FI module](https://github.com/bbusenius/FI) and plots savings rates using [Bokeh](https://bokeh.org/). 
+MMM Savings Rate is a tool that allows users to calculate and track their monthly savings rates over time. It uses the [FI module](https://github.com/bbusenius/FI) and plots savings rates with [Bokeh](https://bokeh.org/). 
 
 **Key Features:**
+- **Graphical User Interface (GUI)** - User-friendly interface built with BeeWare/Toga
+- **Command Line Interface (CLI)** - Full-featured command line tools
 - Parse Excel (.xlsx) and CSV spreadsheets with flexible column mapping
 - Interactive web-based visualizations with Bokeh
 - JSON-based configuration using TinyDB for easy management
@@ -22,27 +24,34 @@ Users may also supply secondary, "enemy" spreadsheets. This feature is provided 
 ## Installation
 This package should generally be installed using pip.
 
-### For users 
+### For users (CLI only)
 
-```
+```bash
 pip install git+https://github.com/bbusenius/MMM_Savings_Rate.git#egg=mmm_savings_rate
 ```
+
+### For users (CLI + GUI)
+
+```bash
+pip install "git+https://github.com/bbusenius/MMM_Savings_Rate.git#egg=mmm_savings_rate[gui]"
+```
+
 ### For developers
 
 ```bash
-# Clone and install in development mode
+# Clone and install in development mode with GUI support
 git clone https://github.com/bbusenius/MMM_Savings_Rate.git
 cd MMM_Savings_Rate
-pip install -e .
+pip install -e .[gui]
 
 # Install development dependencies for linting
 pip install -r requirements-dev.txt
 ```
 
-Or install directly from GitHub:
-```bash
-pip install -e git+https://github.com/bbusenius/MMM_Savings_Rate.git#egg=mmm_savings_rate
-```
+**Installation Options:**
+- **Core**: `pip install -e .` - CLI functionality only
+- **GUI**: `pip install -e .[gui]` - CLI + GUI functionality  
+- **Development**: `pip install -e .[gui] -r requirements-dev.txt` - Everything + development tools
 ## Setting up the application
 
 In order to get things going, you'll only need to take the following steps:
@@ -81,9 +90,19 @@ When you first run the application, it will automatically:
 
 #### Configuration Management
 
-You can manage your configuration in two ways:
+You can manage your configuration in three ways:
 
-**Option 1: CLI Commands (Recommended)**
+**Option 1: GUI Configuration**
+
+Use the Config tab in the graphical interface for visual configuration editing with validation:
+
+```bash
+# Launch the GUI
+mmm-savings-rate-gui
+```
+Then navigate to the Config tab to edit all settings with form validation and error checking.
+
+**Option 2: CLI Commands**
 ```bash
 # View current configuration
 sr-show-config
@@ -96,7 +115,7 @@ sr-update-setting main_user_settings savings "/path/to/savings.xlsx"
 sr-validate-config
 ```
 
-**Option 2: Direct JSON Editing**
+**Option 3: Editing the JSON directly**
 You can directly edit the `~/.mmm_savings_rate/db.json` file. Here's an example configuration:
 
 ```json
@@ -183,7 +202,7 @@ If you want to plot your progress towards FI as a percentage of your FI number, 
 - **total_balances** - a spreadsheet heading that maps to a column where you track the total monthly balance of all your accounts.
 - **percent_fi_notes** - a spreadsheet heading that maps to a column with text that you want to show on the % FI plot. Entries will appear as event dots on the plot and will display tooltips with the notes on hover.
 
-This doesn't take into account liabilities so, if you have them, you can just as easily map these configurations to a column that tracks net worth.
+This doesn't take into account liabilities so, if you have them, you can just as easily map these configurations to a column that tracks net worth instead.
 
 ![Percent FI plotted with annotations](https://github.com/bbusenius/MMM_Savings_Rate/raw/master/docs/percent-fi-notes.png)
 
@@ -192,11 +211,13 @@ This doesn't take into account liabilities so, if you have them, you can just as
 Once you have your spreadsheet files ready and have configured your settings, you can run the application:
 
 1. **First run**: The application will automatically create the configuration file with defaults:
+
    ```bash
    savingsrates
    ```
 
 2. **Configure your settings** using CLI commands:
+
    ```bash
    # Update file paths to point to your spreadsheets
    sr-update-setting main_user_settings pay "/path/to/your/income.xlsx"
@@ -207,6 +228,7 @@ Once you have your spreadsheet files ready and have configured your settings, yo
    ```
 
 3. **Run the application**:
+
    ```bash
    savingsrates
    ```
@@ -215,12 +237,10 @@ When you run the command, a plot of your monthly savings rates will open in a br
 
 #### CLI Options
 
-The `savingsrates` command supports the following options:
+The `savingsrates` command supports the following optional arguments:
 
 - `-u, --user USER_ID` - Specify which user to analyze (default: 1)
 - `-o, --output OUTPUT_PATH` - Specify where to save the HTML plot file (default: savings-rates.html)
-
-> **Note:** The `--output` option is designed to support future graphical application development while maintaining full CLI compatibility. This allows the same core functionality to be used in both command-line and GUI contexts.
 
 **Usage Examples:**
 ```bash
@@ -247,6 +267,119 @@ The application now includes dedicated CLI commands for configuration management
 - `sr-show-config` - Display current configuration
 - `sr-validate-config` - Validate configuration and report any errors
 - `sr-update-setting <table> <field> <value>` - Update specific settings
+
+## Using the GUI
+
+MMM Savings Rate includes a full-featured graphical user interface built with BeeWare/Toga.
+
+### Installing the GUI
+
+**Option 1: Python Package (pip)**
+```bash
+# Install with GUI support
+pip install "git+https://github.com/bbusenius/MMM_Savings_Rate.git#egg=mmm_savings_rate[gui]"
+```
+
+**Option 2: OS Package Installer**
+```bash
+# Command line installation (Ubuntu/Debian)
+sudo dpkg -i mmm-savings-rate-2.0.0-1.deb
+
+# Or double-click the .deb file to install via Ubuntu App Center
+```
+> **Note**: Currently only `.deb` packages for Ubuntu/Debian are available. Other OS package formats may be added in future releases.
+
+### Launching the GUI
+
+**If installed via .deb package:**
+- Launch like any other application from your desktop environment (Activities menu, application launcher, etc.)
+- Or run from command line: `mmm-savings-rate-gui`
+
+**If installed via pip:**
+
+```bash
+# Start the GUI application
+mmm-savings-rate-gui
+```
+
+### GUI Features
+
+The GUI provides an intuitive interface with four main tabs:
+
+#### **📊 Plot Tab** (Default)
+- **Interactive Bokeh plots** displayed directly in the application
+- **Automatic simulation** runs on startup with your current configuration
+- **Refresh Plot button** to regenerate plots after making changes
+- **Responsive plots** that adapt to window size
+- **No browser required** - plots display within the GUI
+
+![GUI Plot Tab](docs/gui-plot-tab.png)
+
+#### **⚙️ Config Tab**
+- **Visual configuration editor** for all settings
+- **Organized sections**: File Paths, Column Mappings, Account Lists, Display Options, FRED API, Notes & Goals
+- **Form validation** with error checking and helpful messages
+- **Save & Validate** button to apply changes
+- **Automatic field type handling** (text, numbers, lists, checkboxes)
+- **Shares configuration** with CLI tools via `~/.mmm_savings_rate/db.json`
+
+![GUI Config Tab](docs/gui-config-tab.png)
+
+#### **💳 Income Tab**
+- **Read-only table view** of your income spreadsheet data
+- **Last 10 entries** displayed in reverse chronological order (most recent first)
+- **All spreadsheet columns** visible with scrollable table
+- **File information** showing path, last modified date, and total rows
+- **Reload Data** button to refresh after external spreadsheet changes
+- **Open Spreadsheet** button to edit files in external applications (Excel, LibreOffice, etc.)
+
+![GUI Income Tab](docs/gui-income-tab.png)
+
+#### **💰 Savings Tab**
+- **Read-only table view** of your savings spreadsheet data
+- **Last 10 entries** displayed in reverse chronological order (most recent first)
+- **All spreadsheet columns** visible with scrollable table
+- **File information** showing path, last modified date, and total rows
+- **Reload Data** button to refresh after external spreadsheet changes
+- **Open Spreadsheet** button to edit files in external applications
+
+![GUI Savings Tab](docs/gui-savings-tab.png)
+
+### GUI Workflow
+
+#### **First-Run Experience**
+When you first launch the GUI without any configuration, you'll see a placeholder message prompting you to configure your settings:
+
+![GUI First Run - No Plot Available](docs/gui-first-run-1.png)
+
+After clicking "Cancel", the GUI automatically creates default configuration and takes you to the Config tab to get started:
+
+![GUI First Run - Default Config](docs/gui-first-run-2.png)
+
+#### **Typical Workflow**
+1. **First Run**: The GUI automatically creates default configuration at `~/.mmm_savings_rate/db.json`
+2. **Configure**: Use the Config tab to set your spreadsheet file paths and column mappings
+3. **View Data**: Check Income and Savings tabs to verify your data is loading correctly
+4. **Generate Plot**: Return to Plot tab and click "Refresh Plot" to generate your savings rate visualization
+5. **Iterate**: Make configuration changes and refresh as needed
+
+### GUI Error Handling
+
+The GUI includes error handling with user-friendly dialogs:
+
+- **Configuration errors** automatically redirect to the Config tab with specific error messages
+- **File not found errors** provide clear guidance on fixing file paths
+- **Data format errors** help identify spreadsheet formatting issues
+- **Validation errors** highlight specific fields that need correction
+
+### CLI and GUI Integration
+
+The GUI and CLI tools work seamlessly together:
+
+- **Shared configuration**: Both use the same `~/.mmm_savings_rate/db.json` file
+- **CLI commands work**: Use `sr-show-config`, `sr-validate-config`, etc. alongside the GUI
+- **Plot compatibility**: GUI and CLI generate identical Bokeh plots
+- **No conflicts**: You can switch between GUI and CLI freely
 
 ## Requirements
 
@@ -281,9 +414,25 @@ The documentation will automatically rebuild on Read the Docs when changes are p
 
 ### Running tests
 
+This project uses a modern Python package structure with source code in `src/`. The recommended way to run tests is using Briefcase, which handles the package environment correctly.
+
+**Recommended: Using Briefcase**
 ```bash
-python -m unittest discover tests -p 'test_*.py'
+# Install briefcase if not already installed
+pip install briefcase
+
+# Run tests with proper package setup
+briefcase dev --test
 ```
+
+**Alternative: Using pytest**
+```bash
+# Install pytest and run tests
+pip install pytest
+pytest tests/ -v
+```
+
+**Note**: The GitHub Actions workflow uses pytest for CI (core dependencies only), while local development can use Briefcase for full testing.
 
 ### Code Quality and Linting
 

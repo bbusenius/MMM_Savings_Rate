@@ -11,7 +11,7 @@ from unittest import mock
 
 import requests
 
-from savings_rate import Plot, SavingsRate, SRConfig
+from mmm_savings_rate.savings_rate import Plot, SavingsRate, SRConfig
 
 
 class TestSavingsRate(unittest.TestCase):
@@ -24,16 +24,23 @@ class TestSavingsRate(unittest.TestCase):
         self.temp_csv_dir = tempfile.mkdtemp()
         self.temp_xlsx_dir = tempfile.mkdtemp()
 
+        # Get absolute paths to CSV files
+        project_root = Path(__file__).parent.parent
+        income_csv_path = project_root / "csv" / "income-example.csv"
+        savings_csv_path = project_root / "csv" / "savings-example.csv"
+        income_xlsx_path = project_root / "csv" / "income-example.xlsx"
+        savings_xlsx_path = project_root / "csv" / "savings-example.xlsx"
+
         # CSV test configuration
         self.csv_db_path = Path(self.temp_csv_dir) / "test_csv_config.json"
         csv_config = {
             "main_user_settings": {
-                "pay": "csv/income-example.csv",  # Use existing csv test file
+                "pay": str(income_csv_path),  # Use absolute path to csv test file
                 "pay_date": "Date",
                 "gross_income": "Gross Pay",
                 "employer_match": "Employer Match",
                 "taxes_and_fees": ["OASDI", "Medicare"],
-                "savings": "csv/savings-example.csv",  # Use existing csv test file
+                "savings": str(savings_csv_path),  # Use absolute path to csv test file
                 "savings_date": "Date",
                 "savings_accounts": ["Scottrade", "Vanguard 403b", "Vanguard Roth"],
                 "notes": "Test notes",
@@ -63,12 +70,14 @@ class TestSavingsRate(unittest.TestCase):
         self.xlsx_db_path = Path(self.temp_xlsx_dir) / "test_xlsx_config.json"
         xlsx_config = {
             "main_user_settings": {
-                "pay": "csv/income-example.xlsx",  # Use existing xlsx test file
+                "pay": str(income_xlsx_path),  # Use absolute path to xlsx test file
                 "pay_date": "Date",
                 "gross_income": "Gross Pay",
                 "employer_match": "Employer Match",
                 "taxes_and_fees": ["OASDI", "Medicare"],
-                "savings": "csv/savings-example.xlsx",  # Use existing xlsx test file
+                "savings": str(
+                    savings_xlsx_path
+                ),  # Use absolute path to xlsx test file
                 "savings_date": "Date",
                 "savings_accounts": ["Scottrade", "Vanguard 403b", "Vanguard Roth"],
                 "notes": "Test notes",
@@ -555,7 +564,7 @@ class TestFRED(unittest.TestCase):
         if hasattr(self, 'config'):
             self.config.close()
 
-    @mock.patch('savings_rate.requests.get')
+    @mock.patch('mmm_savings_rate.savings_rate.requests.get')
     def test_get_us_average(self, mock_get):
         # Mock response from FRED API
         response_json = {
@@ -584,7 +593,7 @@ class TestFRED(unittest.TestCase):
         ]
         self.assertEqual(result, expected_result)
 
-    @mock.patch('savings_rate.requests.get')
+    @mock.patch('mmm_savings_rate.savings_rate.requests.get')
     def test_missing_fred_config(self, mock_get):
         # Bad config
         self.config.fred_url = ''
@@ -593,7 +602,7 @@ class TestFRED(unittest.TestCase):
         result = my_instance.get_us_average(self.monthly_rates)
         self.assertEqual(result, [])
 
-    @mock.patch('savings_rate.requests.get')
+    @mock.patch('mmm_savings_rate.savings_rate.requests.get')
     def test_shorter_response_from_fred_still_works(self, mock_get):
         response_json = {
             'observations': [
@@ -647,16 +656,21 @@ class TestPlotOutputPath(unittest.TestCase):
         # Create temporary directory for tests
         self.temp_dir = tempfile.mkdtemp()
 
+        # Get absolute paths to CSV files
+        project_root = Path(__file__).parent.parent
+        income_csv_path = project_root / "csv" / "income-example.csv"
+        savings_csv_path = project_root / "csv" / "savings-example.csv"
+
         # Create test configuration
         self.test_db_path = Path(self.temp_dir) / "test_plot_config.json"
         test_config = {
             "main_user_settings": {
-                "pay": "csv/income-example.csv",
+                "pay": str(income_csv_path),
                 "pay_date": "Date",
                 "gross_income": "Gross Pay",
                 "employer_match": "Employer Match",
                 "taxes_and_fees": ["OASDI", "Medicare"],
-                "savings": "csv/savings-example.csv",
+                "savings": str(savings_csv_path),
                 "savings_date": "Date",
                 "savings_accounts": ["Scottrade", "Vanguard 403b", "Vanguard Roth"],
                 "notes": "",
@@ -703,8 +717,8 @@ class TestPlotOutputPath(unittest.TestCase):
         self.created_configs.append(config)
         return config
 
-    @mock.patch('savings_rate.output_file')
-    @mock.patch('savings_rate.show')
+    @mock.patch('mmm_savings_rate.savings_rate.output_file')
+    @mock.patch('mmm_savings_rate.savings_rate.show')
     def test_plot_with_default_output_path(self, mock_show, mock_output_file):
         """Test that plot_savings_rates works with default output path."""
         config = self._create_test_config()
@@ -719,8 +733,8 @@ class TestPlotOutputPath(unittest.TestCase):
             "savings-rates.html", title="Monthly Savings Rates"
         )
 
-    @mock.patch('savings_rate.output_file')
-    @mock.patch('savings_rate.show')
+    @mock.patch('mmm_savings_rate.savings_rate.output_file')
+    @mock.patch('mmm_savings_rate.savings_rate.show')
     def test_plot_with_custom_output_path(self, mock_show, mock_output_file):
         """Test that plot_savings_rates works with custom output path."""
         config = self._create_test_config()
@@ -735,8 +749,8 @@ class TestPlotOutputPath(unittest.TestCase):
             custom_path, title="Monthly Savings Rates"
         )
 
-    @mock.patch('savings_rate.output_file')
-    @mock.patch('savings_rate.show')
+    @mock.patch('mmm_savings_rate.savings_rate.output_file')
+    @mock.patch('mmm_savings_rate.savings_rate.show')
     @mock.patch('os.makedirs')
     def test_plot_creates_output_directory(
         self, mock_makedirs, mock_show, mock_output_file
@@ -761,8 +775,8 @@ class TestPlotOutputPath(unittest.TestCase):
             output_path, title="Monthly Savings Rates"
         )
 
-    @mock.patch('savings_rate.output_file')
-    @mock.patch('savings_rate.show')
+    @mock.patch('mmm_savings_rate.savings_rate.output_file')
+    @mock.patch('mmm_savings_rate.savings_rate.show')
     @mock.patch('os.makedirs')
     def test_plot_skips_directory_creation_when_exists(
         self, mock_makedirs, mock_show, mock_output_file
@@ -786,8 +800,8 @@ class TestPlotOutputPath(unittest.TestCase):
             output_path, title="Monthly Savings Rates"
         )
 
-    @mock.patch('savings_rate.output_file')
-    @mock.patch('savings_rate.show')
+    @mock.patch('mmm_savings_rate.savings_rate.output_file')
+    @mock.patch('mmm_savings_rate.savings_rate.show')
     def test_plot_with_absolute_path(self, mock_show, mock_output_file):
         """Test that plot_savings_rates works with absolute paths."""
         config = self._create_test_config()
@@ -803,8 +817,8 @@ class TestPlotOutputPath(unittest.TestCase):
             abs_path, title="Monthly Savings Rates"
         )
 
-    @mock.patch('savings_rate.output_file')
-    @mock.patch('savings_rate.show')
+    @mock.patch('mmm_savings_rate.savings_rate.output_file')
+    @mock.patch('mmm_savings_rate.savings_rate.show')
     def test_plot_with_none_output_path(self, mock_show, mock_output_file):
         """Test that plot_savings_rates handles None output_path correctly."""
         config = self._create_test_config()

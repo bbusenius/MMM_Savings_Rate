@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from savings_rate import SavingsRate, SRConfig
+from mmm_savings_rate.savings_rate import SavingsRate, SRConfig
 
 
 class TestSRConfig(unittest.TestCase):
@@ -46,14 +46,19 @@ class TestSRConfig(unittest.TestCase):
             temp_dir = tempfile.mkdtemp()
             test_db_path = Path(temp_dir) / "test_bad_values.json"
 
+            # Get absolute paths to CSV files
+            project_root = Path(__file__).parent.parent
+            income_csv_path = project_root / "csv" / "income-example.csv"
+            savings_csv_path = project_root / "csv" / "savings-example.csv"
+
             bad_config = {
                 "main_user_settings": {
-                    "pay": "csv/income-example.csv",  # Use existing test file
+                    "pay": str(income_csv_path),  # Use absolute path to test file
                     "pay_date": "Date",
                     "gross_income": "Gross Pay",
                     "employer_match": "Employer Match",
                     "taxes_and_fees": ["OASDI", "Medicare"],
-                    "savings": "csv/savings-example.csv",  # Use existing test file
+                    "savings": str(savings_csv_path),  # Use absolute path to test file
                     "savings_date": "Date",
                     "savings_accounts": ["Scottrade", "Vanguard 403b", "Vanguard Roth"],
                     "notes": "Notes",
@@ -110,14 +115,19 @@ class TestFREDConfig(unittest.TestCase):
         self.temp_dir = tempfile.mkdtemp()
         self.test_db_path = Path(self.temp_dir) / "test_fred.json"
 
+        # Get absolute paths to CSV files
+        project_root = Path(__file__).parent.parent
+        income_csv_path = project_root / "csv" / "income-example.csv"
+        savings_csv_path = project_root / "csv" / "savings-example.csv"
+
         fred_config = {
             "main_user_settings": {
-                "pay": "csv/income-example.csv",
+                "pay": str(income_csv_path),
                 "pay_date": "Date",
                 "gross_income": "Gross Pay",
                 "employer_match": "Employer Match",
                 "taxes_and_fees": ["OASDI", "Medicare"],
-                "savings": "csv/savings-example.csv",
+                "savings": str(savings_csv_path),
                 "savings_date": "Date",
                 "savings_accounts": ["Scottrade", "Vanguard 403b", "Vanguard Roth"],
                 "notes": "Notes",
@@ -144,12 +154,12 @@ class TestFREDConfig(unittest.TestCase):
 
         no_fred_config = {
             "main_user_settings": {
-                "pay": "csv/income-example.csv",
+                "pay": str(income_csv_path),
                 "pay_date": "Date",
                 "gross_income": "Gross Pay",
                 "employer_match": "Employer Match",
                 "taxes_and_fees": ["OASDI", "Medicare"],
-                "savings": "csv/savings-example.csv",
+                "savings": str(savings_csv_path),
                 "savings_date": "Date",
                 "savings_accounts": ["Scottrade", "Vanguard 403b", "Vanguard Roth"],
                 "notes": "Notes",
@@ -217,15 +227,20 @@ class TestConfigurationFeatures(unittest.TestCase):
         self.temp_dir = tempfile.mkdtemp()
         self.test_db_path = Path(self.temp_dir) / "test_config_features.json"
 
+        # Get absolute paths to CSV files
+        project_root = Path(__file__).parent.parent
+        income_csv_path = project_root / "csv" / "income-example.csv"
+        savings_csv_path = project_root / "csv" / "savings-example.csv"
+
         # Base config with all features
         self.base_config = {
             "main_user_settings": {
-                "pay": "csv/income-example.csv",
+                "pay": str(income_csv_path),
                 "pay_date": "Date",
                 "gross_income": "Gross Pay",
                 "employer_match": "Employer Match",
                 "taxes_and_fees": ["OASDI", "Medicare"],
-                "savings": "csv/savings-example.csv",
+                "savings": str(savings_csv_path),
                 "savings_date": "Date",
                 "savings_accounts": ["Scottrade", "Vanguard 403b", "Vanguard Roth"],
                 "notes": "Test notes content",

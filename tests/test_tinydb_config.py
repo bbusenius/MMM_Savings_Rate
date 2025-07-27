@@ -5,8 +5,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from db_config import DBConfigManager
-from savings_rate import SRConfig
+from mmm_savings_rate.db_config import DBConfigManager
+from mmm_savings_rate.savings_rate import SRConfig
 
 
 class TestDBConfigManager(unittest.TestCase):

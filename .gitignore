@@ -9,16 +9,7 @@
 /*.egg-info
 /.eggs
 /build
-config/config.ini
-config/savings_rate_wars.ini
-config/config-uzia.ini
-config/account-config.ini
-csv/income.csv
-csv/savings.csv
-csv/income.xlsx
-csv/savings.xlsx
-csv/income-uzia.csv
-csv/savings-uzia.csv
+/docs/_build/
 venv/
 .vscode/
 savings-rates.html
@@ -26,3 +17,14 @@ savings-rates.html
 CLAUDE.md
 .gemini
 /tasks
+
+# Briefcase generated files and directories
+/logs/
+*.dist-info/
+__pycache__/
+*.egg-info/
+*.backup
+
+# Testing artifacts
+test_*.py
+test-*.html

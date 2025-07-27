@@ -22,8 +22,8 @@ import argparse
 import json
 import sys
 
-from db_config import DBConfigManager
-from savings_rate import Plot, SavingsRate, SRConfig
+from .db_config import DBConfigManager
+from .savings_rate import Plot, SavingsRate, SRConfig
 
 
 def get_initialized_db_manager():
