@@ -99,7 +99,7 @@ Use the Config tab in the graphical interface for visual configuration editing w
 
 ```bash
 # Launch the GUI
-mmm-savings-rate-gui
+savingsrates-gui
 ```
 Then navigate to the Config tab to edit all settings with form validation and error checking.
 
@@ -300,13 +300,13 @@ sudo dpkg -i mmm-savings-rate-2.0.0-1.deb
 
 **If installed via .deb package:**
 - Launch like any other application from your desktop environment (Activities menu, application launcher, etc.)
-- Or run from command line: `mmm-savings-rate-gui`
+- Or run from command line: `savingsrates-gui`
 
 **If installed via pip:**
 
 ```bash
 # Start the GUI application
-mmm-savings-rate-gui
+savingsrates-gui
 ```
 
 ### GUI Features

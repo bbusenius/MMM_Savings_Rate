@@ -44,7 +44,7 @@ savingsrates = "mmm_savings_rate.sr_launcher:run"
 sr-show-config = "mmm_savings_rate.sr_launcher:show_config"
 sr-validate-config = "mmm_savings_rate.sr_launcher:validate_config"
 sr-update-setting = "mmm_savings_rate.sr_launcher:update_setting"
-mmm-savings-rate-gui = "mmm_savings_rate.gui:run_gui"
+savingsrates-gui = "mmm_savings_rate.gui:run_gui"
 
 [project.optional-dependencies]
 gui = [

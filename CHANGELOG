@@ -5,7 +5,7 @@ MMM Savings Rate (2.0.0) unstable; urgency=low
   * Read-only income and savings data viewing with spreadsheet integration
   * Shared TinyDB configuration between CLI and GUI applications
   * Cross-platform spreadsheet editing integration (Windows/macOS/Linux)
-  * Console script entry point for mmm-savings-rate-gui command
+  * Console script entry point for savingsrates-gui command
   * Briefcase packaging for .deb distribution
   * Project restructured to src/ layout for better packaging
   * GUI and CLI coexistence - both interfaces work independently with shared config

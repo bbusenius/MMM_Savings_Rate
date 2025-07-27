@@ -157,7 +157,7 @@ editing with validation:
 .. code:: bash
 
    # Launch the GUI
-   mmm-savings-rate-gui
+   savingsrates-gui
 
 Then navigate to the Config tab to edit all settings with form
 validation and error checking.
@@ -437,14 +437,14 @@ Launching the GUI
 
 **If installed via .deb package:** - Launch like any other application
 from your desktop environment (Activities menu, application launcher,
-etc.) - Or run from command line: ``mmm-savings-rate-gui``
+etc.) - Or run from command line: ``savingsrates-gui``
 
 **If installed via pip:**
 
 .. code:: bash
 
    # Start the GUI application
-   mmm-savings-rate-gui
+   savingsrates-gui
 
 GUI Features
 ~~~~~~~~~~~~
