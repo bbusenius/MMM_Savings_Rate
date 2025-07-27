@@ -545,7 +545,7 @@ class ConfigTab:
         self.refresh_plot_button = toga.Button(
             'Refresh Plot',
             on_press=self.refresh_plot,
-            style=Pack(padding=(0, 0, 0, 10)),
+            style=Pack(padding=(0, 10, 0, 0)),
         )
         button_box.add(self.refresh_plot_button)
 
