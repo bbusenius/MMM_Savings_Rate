@@ -12,6 +12,10 @@ from typing import Any, Dict, List, Optional
 
 from tinydb import TinyDB
 
+# Application constants
+CONFIG_DIR_NAME = '.mmm_savings_rate'
+ERROR_LOG_FILENAME = 'error.log'
+
 # Default configuration values
 DEFAULT_MAIN_USER_SETTINGS = {
     "pay": "csv/income-example.xlsx",
@@ -72,7 +76,7 @@ class DBConfigManager:
         else:
             # Default path
             home_dir = Path.home()
-            config_dir = home_dir / '.mmm_savings_rate'
+            config_dir = home_dir / CONFIG_DIR_NAME
             config_dir.mkdir(exist_ok=True)
             self.db_path = config_dir / 'db.json'
 
@@ -93,7 +97,7 @@ class DBConfigManager:
         self.logger.setLevel(logging.ERROR)
 
         # Create file handler
-        log_file = log_dir / 'error.log'
+        log_file = log_dir / ERROR_LOG_FILENAME
         self.file_handler = logging.FileHandler(log_file)
         self.file_handler.setLevel(logging.ERROR)
 

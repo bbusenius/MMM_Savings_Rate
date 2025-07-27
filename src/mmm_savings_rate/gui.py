@@ -5,9 +5,12 @@ This module provides a graphical interface for the MMM Savings Rate application,
 displaying Bokeh plots in a WebView and providing configuration management.
 """
 
+import asyncio
+import logging
 import os
 import platform
 import subprocess
+import threading
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -16,9 +19,164 @@ import pandas as pd
 import toga
 from toga.style import Pack
 from toga.style.pack import COLUMN, ROW
+from watchdog.events import FileSystemEventHandler
+from watchdog.observers import Observer
 
-from .db_config import DBConfigManager
+from .db_config import CONFIG_DIR_NAME, ERROR_LOG_FILENAME, DBConfigManager
 from .savings_rate import Plot, SavingsRate, SRConfig
+
+
+class FileWatcher:
+    """File watcher that monitors spreadsheet files for changes and triggers plot refresh."""
+
+    def __init__(self, app):
+        self.app = app
+        self.observer = Observer()
+        self.watched_files = set()
+        self.event_handler = self.SpreadsheetChangeHandler(self)
+        self._debounce_timer = None
+        self._debounce_delay = 1.0  # 1 second debounce
+        self._setup_logging()
+
+    def _setup_logging(self):
+        """Set up logging to use the same error.log file as the rest of the application."""
+        # Use the same log file path as DBConfigManager
+        home_dir = Path.home()
+        log_dir = home_dir / CONFIG_DIR_NAME
+        log_file = log_dir / ERROR_LOG_FILENAME
+
+        self.logger = logging.getLogger('file_watcher')
+        self.logger.setLevel(logging.INFO)
+
+        # Check if handler already exists to avoid duplicates
+        if not self.logger.handlers:
+            file_handler = logging.FileHandler(log_file)
+            file_handler.setLevel(logging.INFO)
+            formatter = logging.Formatter(
+                '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+            )
+            file_handler.setFormatter(formatter)
+            self.logger.addHandler(file_handler)
+
+    class SpreadsheetChangeHandler(FileSystemEventHandler):
+        """Handle file system events for spreadsheet files."""
+
+        def __init__(self, watcher):
+            self.watcher = watcher
+
+        def on_modified(self, event):
+            """Handle file modification events."""
+            if event.is_directory:
+                return
+
+            # Check if the modified file is one we're watching
+            file_path = os.path.abspath(event.src_path)
+            if file_path in self.watcher.watched_files:
+                # Check if it's a spreadsheet file
+                if file_path.lower().endswith(('.xlsx', '.csv')):
+                    self.watcher._trigger_refresh_debounced()
+
+    def _trigger_refresh_debounced(self):
+        """Trigger plot refresh with debouncing to avoid multiple rapid refreshes."""
+        # Cancel existing timer
+        if self._debounce_timer is not None:
+            self._debounce_timer.cancel()
+
+        # Start new timer
+        self._debounce_timer = threading.Timer(
+            self._debounce_delay, self._execute_refresh
+        )
+        self._debounce_timer.start()
+
+    def _execute_refresh(self):
+        """Execute the actual plot refresh in the main thread."""
+        try:
+            # Get the main event loop and schedule the coroutine
+            loop = self.app._impl.loop if hasattr(self.app, '_impl') else None
+            if loop and loop.is_running():
+                # Schedule the coroutine on the main loop from our thread
+                asyncio.run_coroutine_threadsafe(self.app.plot_tab.refresh_plot(), loop)
+            else:
+                # Fallback: try to find the running loop
+                try:
+                    loop = asyncio.get_running_loop()
+                    asyncio.run_coroutine_threadsafe(
+                        self.app.plot_tab.refresh_plot(), loop
+                    )
+                except RuntimeError:
+                    self.logger.error(
+                        "Could not find running event loop for plot refresh"
+                    )
+
+        except Exception as e:
+            self.logger.error(f"Error refreshing plot after file change: {e}")
+
+    def watch_file(self, file_path):
+        """Add a file to the watch list."""
+        if not file_path or not os.path.exists(file_path):
+            return
+
+        # Defensive programming: make sure the path is absolute
+        abs_path = os.path.abspath(file_path)
+        if abs_path not in self.watched_files:
+            # Watch the directory containing the file
+            directory = os.path.dirname(abs_path)
+            try:
+                self.observer.schedule(self.event_handler, directory, recursive=False)
+                self.watched_files.add(abs_path)
+                self.logger.info(f"Now watching: {abs_path}")
+            except Exception as e:
+                self.logger.error(f"Error watching file {abs_path}: {e}")
+
+    def unwatch_file(self, file_path):
+        """Remove a file from the watch list."""
+        if not file_path:
+            return
+
+        abs_path = os.path.abspath(file_path)
+        if abs_path in self.watched_files:
+            self.watched_files.remove(abs_path)
+            self.logger.info(f"Stopped watching: {abs_path}")
+
+    def start(self):
+        """Start the file observer."""
+        if not self.observer.is_alive():
+            try:
+                self.observer.start()
+                self.logger.info("File watcher started")
+            except Exception as e:
+                self.logger.error(f"Error starting file watcher: {e}")
+
+    def stop(self):
+        """Stop the file observer."""
+        if self.observer.is_alive():
+            self.observer.stop()
+            self.observer.join()
+            self.logger.info("File watcher stopped")
+
+    def update_watched_files(self):
+        """Update the list of watched files based on current configuration."""
+        try:
+            settings = self.app.db_manager.get_main_user_settings()
+
+            # Clear current watches (simplified approach - restart observer)
+            self.stop()
+            self.observer = Observer()
+            self.watched_files.clear()
+
+            # Add current configured files
+            pay_file = settings.get('pay', '')
+            savings_file = settings.get('savings', '')
+
+            if pay_file:
+                self.watch_file(pay_file)
+            if savings_file:
+                self.watch_file(savings_file)
+
+            self.start()
+
+        except Exception as e:
+            self.logger.error(f"Error updating watched files: {e}")
 
 
 class MMMSavingsRateApp(toga.App):
@@ -28,11 +186,17 @@ class MMMSavingsRateApp(toga.App):
         """Initialize the application and create the main window."""
         self.main_window = toga.MainWindow(title=self.formal_name)
 
+        # Create application menu
+        self._create_app_menu()
+
         # Initialize database manager (for validation only)
         self.db_manager = DBConfigManager()
         if not self.db_manager.initialize_db():
             self.show_error_dialog("Database Error", ["Failed to initialize database"])
             return
+
+        # Initialize file watcher
+        self.file_watcher = FileWatcher(self)
 
         # Create main container
         self.main_box = toga.Box(style=Pack(direction=COLUMN, padding=10))
@@ -57,6 +221,9 @@ class MMMSavingsRateApp(toga.App):
         self.main_box.add(self.tab_container)
         self.main_window.content = self.main_box
         self.main_window.show()
+
+        # Start file watcher and schedule initial simulation
+        self.file_watcher.update_watched_files()
 
         # Schedule initial simulation to run after startup
         import asyncio
@@ -88,7 +255,7 @@ class MMMSavingsRateApp(toga.App):
     def get_gui_output_path(self) -> str:
         """Get the fixed output path for GUI plots."""
         home_dir = Path.home()
-        config_dir = home_dir / '.mmm_savings_rate'
+        config_dir = home_dir / CONFIG_DIR_NAME
         config_dir.mkdir(exist_ok=True)
         return str(config_dir / 'output.html')
 
@@ -96,6 +263,37 @@ class MMMSavingsRateApp(toga.App):
         """Show an error dialog with the given title and error messages."""
         message = "\n".join(f"• {error}" for error in errors)
         await self.main_window.dialog(toga.ErrorDialog(title, message))
+
+    def finalize(self):
+        """Clean up resources when app shuts down."""
+        try:
+            if hasattr(self, 'file_watcher'):
+                self.file_watcher.stop()
+        except Exception as e:
+            # Use file_watcher's logger if available, otherwise fallback to print
+            if hasattr(self, 'file_watcher') and hasattr(self.file_watcher, 'logger'):
+                self.file_watcher.logger.error(f"Error stopping file watcher: {e}")
+            else:
+                print(f"Error stopping file watcher: {e}")
+        super().finalize()
+
+    def _create_app_menu(self):
+        """Create the application menu."""
+        # Create View menu with refresh option
+        view_menu = toga.Group('View')
+        self.commands.add(
+            toga.Command(
+                self._menu_refresh_plot,
+                text='Refresh Plot',
+                tooltip='Refresh the plot display',
+                group=view_menu,
+                section=0,
+            )
+        )
+
+    async def _menu_refresh_plot(self, widget):
+        """Menu handler for refreshing the plot."""
+        await self.plot_tab.refresh_plot()
 
 
 def load_spreadsheet_data(file_path: str, limit: int = 10) -> Optional[Dict]:
@@ -165,14 +363,6 @@ class PlotTab:
         # WebView for plot display
         self.webview = toga.WebView(style=Pack(flex=1))
         box.add(self.webview)
-
-        # Refresh button at bottom (now runs full simulation)
-        self.refresh_button = toga.Button(
-            'Refresh Plot',
-            on_press=self.refresh_plot,
-            style=Pack(padding=(10, 0, 0, 0)),
-        )
-        box.add(self.refresh_button)
 
         # Initial placeholder
         self._show_placeholder()
@@ -348,9 +538,16 @@ class ConfigTab:
         button_box.add(self.validate_button)
 
         self.save_button = toga.Button(
-            'Save Config', on_press=self.save_config, style=Pack(padding=(0, 0, 0, 10))
+            'Save Config', on_press=self.save_config, style=Pack(padding=(0, 10, 0, 0))
         )
         button_box.add(self.save_button)
+
+        self.refresh_plot_button = toga.Button(
+            'Refresh Plot',
+            on_press=self.refresh_plot,
+            style=Pack(padding=(0, 0, 0, 10)),
+        )
+        button_box.add(self.refresh_plot_button)
 
         main_box.add(button_box)
 
@@ -542,6 +739,10 @@ class ConfigTab:
         except Exception as e:
             await self.app.show_error_dialog("Validation Error", [str(e)])
 
+    async def refresh_plot(self, widget):
+        """Refresh the plot display."""
+        await self.app.plot_tab.refresh_plot()
+
     async def save_config(self, widget):
         """Save configuration changes."""
         try:
@@ -563,6 +764,12 @@ class ConfigTab:
             await self.app.main_window.dialog(
                 toga.InfoDialog("Save", "✓ Configuration saved successfully")
             )
+
+            # Update file watcher with new configuration
+            self.app.file_watcher.update_watched_files()
+
+            # Auto-refresh the plot with new configuration
+            await self.app.plot_tab.refresh_plot()
 
         except Exception as e:
             await self.app.show_error_dialog(
@@ -718,6 +925,9 @@ class DataTab:
                     [f"Could not find {self.tab_name.lower()} file: {file_path}"],
                 )
                 return
+
+            # Ensure file watcher is watching this file
+            self.app.file_watcher.watch_file(file_path)
 
             # Open file with default application (cross-platform)
             system = platform.system()

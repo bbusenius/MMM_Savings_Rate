@@ -4,6 +4,7 @@ MMM Savings Rate is a tool that allows users to calculate and track their monthl
 
 **Key Features:**
 - **Graphical User Interface (GUI)** - User-friendly interface built with BeeWare/Toga
+- **Automatic File Watching** - Plots refresh automatically when spreadsheet files are saved
 - **Command Line Interface (CLI)** - Full-featured command line tools
 - Parse Excel (.xlsx) and CSV spreadsheets with flexible column mapping
 - Interactive web-based visualizations with Bokeh
@@ -101,6 +102,12 @@ Use the Config tab in the graphical interface for visual configuration editing w
 mmm-savings-rate-gui
 ```
 Then navigate to the Config tab to edit all settings with form validation and error checking.
+
+**Automatic File Watching (GUI only):** The GUI application automatically monitors your income and savings spreadsheet files for changes. When you save updates to your spreadsheets (whether opened through the GUI's "Open Spreadsheet" button or edited externally), the plot will automatically refresh within 1-2 seconds. This provides a seamless workflow:
+
+1. Configure your file paths in the Config tab
+2. Click "Open Spreadsheet" to edit your data in your preferred application
+3. Save your spreadsheet - the plot updates automatically (no manual refresh needed!)
 
 **Option 2: CLI Commands**
 ```bash
@@ -309,7 +316,7 @@ The GUI provides an intuitive interface with four main tabs:
 #### **📊 Plot Tab** (Default)
 - **Interactive Bokeh plots** displayed directly in the application
 - **Automatic simulation** runs on startup with your current configuration
-- **Refresh Plot button** to regenerate plots after making changes
+- **Automatic refresh** when configuration is saved or files are modified
 - **Responsive plots** that adapt to window size
 - **No browser required** - plots display within the GUI
 
@@ -319,7 +326,8 @@ The GUI provides an intuitive interface with four main tabs:
 - **Visual configuration editor** for all settings
 - **Organized sections**: File Paths, Column Mappings, Account Lists, Display Options, FRED API, Notes & Goals
 - **Form validation** with error checking and helpful messages
-- **Save & Validate** button to apply changes
+- **Save & Validate** buttons to apply changes
+- **Manual Refresh Plot** button for edge cases (plots auto-refresh when config is saved)
 - **Automatic field type handling** (text, numbers, lists, checkboxes)
 - **Shares configuration** with CLI tools via `~/.mmm_savings_rate/db.json`
 
@@ -360,8 +368,8 @@ After clicking "Cancel", the GUI automatically creates default configuration and
 1. **First Run**: The GUI automatically creates default configuration at `~/.mmm_savings_rate/db.json`
 2. **Configure**: Use the Config tab to set your spreadsheet file paths and column mappings
 3. **View Data**: Check Income and Savings tabs to verify your data is loading correctly
-4. **Generate Plot**: Return to Plot tab and click "Refresh Plot" to generate your savings rate visualization
-5. **Iterate**: Make configuration changes and refresh as needed
+4. **Generate Plot**: Return to Plot tab to view your savings rate visualization (automatically generated)
+5. **Iterate**: Make configuration changes - plots refresh automatically when you save config
 
 ### GUI Error Handling
 

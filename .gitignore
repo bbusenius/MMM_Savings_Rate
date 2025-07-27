@@ -24,7 +24,3 @@ CLAUDE.md
 __pycache__/
 *.egg-info/
 *.backup
-
-# Testing artifacts
-test_*.py
-test-*.html
